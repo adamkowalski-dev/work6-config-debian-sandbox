@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# ============================================================================
+# work6 — run-flutter — Flutter CLI ZAWSZE wewnątrz sandboxa bwrap
+#
+#   run-flutter [--workspace KATALOG] [argumenty flutter...]
+#   np.: run-flutter --workspace mojaapka pub get
+#        run-flutter --workspace mojaapka build linux
+#
+# `flutter run -d linux` (okno GUI) wymaga przekazania socketów WŁASNEJ
+# sesji graficznej agenta: ustaw SANDBOX_ALLOW_DISPLAY="yes"
+# w config/sandbox.env i uruchamiaj z sesji pulpitu użytkownika agenta.
+# ============================================================================
+set -Eeuo pipefail
+ROOT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+# shellcheck source=../lib/common.sh
+. "$ROOT_DIR/lib/common.sh"
+common_init
+# shellcheck source=../lib/sandbox.sh
+. "$ROOT_DIR/lib/sandbox.sh"
+
+require_agent_user
+parse_launcher_args "$@"
+
+FLUTTER_BIN="$WORK6/tools/flutter/flutter/bin/flutter"
+[ -x "$FLUTTER_BIN" ] || die "brak Fluttera — uruchom: setup-work6.sh --only flutter"
+
+launch_log run-flutter
+sandbox_exec net "$WS" -- "$FLUTTER_BIN" "${LAUNCH_ARGS[@]}"

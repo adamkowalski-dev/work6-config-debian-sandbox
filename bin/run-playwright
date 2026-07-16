@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# ============================================================================
+# work6 — run-playwright — CLI Playwrighta ZAWSZE wewnątrz sandboxa bwrap
+#
+#   run-playwright [--workspace KATALOG] [argumenty playwright...]
+#   np.: run-playwright --workspace mojprojekt test
+#
+# Przeglądarki: wyłącznie z work6/browsers (PLAYWRIGHT_BROWSERS_PATH,
+# ustawiane w sandboxie). Testy headed wymagają GUI — patrz README
+# (sekcja GUI) i SANDBOX_ALLOW_DISPLAY w config/sandbox.env.
+# Profile przeglądarek: zawsze czyste/projektowe — niczego nie
+# importujemy z kont użytkowników.
+# ============================================================================
+set -Eeuo pipefail
+ROOT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+# shellcheck source=../lib/common.sh
+. "$ROOT_DIR/lib/common.sh"
+common_init
+# shellcheck source=../lib/sandbox.sh
+. "$ROOT_DIR/lib/sandbox.sh"
+
+require_agent_user
+parse_launcher_args "$@"
+
+PW_BIN="$WORK6/npm-global/bin/playwright"
+[ -x "$PW_BIN" ] || die "brak Playwrighta — uruchom: setup-work6.sh --only playwright"
+[ -d "$WORK6/browsers" ] && [ -n "$(ls -A "$WORK6/browsers" 2>/dev/null)" ] \
+  || warn "katalog przeglądarek pusty ($WORK6/browsers) — testy padną; setup-work6.sh --only playwright"
+
+launch_log run-playwright
+sandbox_exec net "$WS" -- "$PW_BIN" "${LAUNCH_ARGS[@]}"

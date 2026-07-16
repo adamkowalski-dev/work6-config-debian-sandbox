@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# ============================================================================
+# work6 — agent-shell — interaktywna powłoka WEWNĄTRZ sandboxa bwrap
+#
+#   agent-shell [--workspace KATALOG]
+#
+# Katalog roboczy (montowany też jako /workspace): domyślnie
+# <work6>/projects; względna nazwa = podkatalog projects/.
+# ============================================================================
+set -Eeuo pipefail
+ROOT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+# shellcheck source=../lib/common.sh
+. "$ROOT_DIR/lib/common.sh"
+common_init
+# shellcheck source=../lib/sandbox.sh
+. "$ROOT_DIR/lib/sandbox.sh"
+
+require_agent_user
+parse_launcher_args "$@"
+[ "${#LAUNCH_ARGS[@]}" -eq 0 ] || die "nieznane argumenty: ${LAUNCH_ARGS[*]} (tylko --workspace KATALOG)"
+
+launch_log agent-shell
+info "sandbox work6 — wyjście: exit / Ctrl+D (projekt: $WS)"
+sandbox_exec net "$WS" -- /bin/bash -i

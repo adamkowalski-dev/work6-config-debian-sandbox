@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# ============================================================================
+# work6 — agent-shell-offline — powłoka w sandboxie BEZ SIECI
+# (--unshare-net); do pracy z niezaufanym kodem/danymi.
+#
+#   agent-shell-offline [--workspace KATALOG]
+# ============================================================================
+set -Eeuo pipefail
+ROOT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+# shellcheck source=../lib/common.sh
+. "$ROOT_DIR/lib/common.sh"
+common_init
+# shellcheck source=../lib/sandbox.sh
+. "$ROOT_DIR/lib/sandbox.sh"
+
+require_agent_user
+parse_launcher_args "$@"
+[ "${#LAUNCH_ARGS[@]}" -eq 0 ] || die "nieznane argumenty: ${LAUNCH_ARGS[*]} (tylko --workspace KATALOG)"
+
+launch_log agent-shell-offline
+info "sandbox work6 OFFLINE (bez sieci) — projekt: $WS"
+sandbox_exec no-net "$WS" -- /bin/bash -i

@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# ============================================================================
+# work6 — run-vscode — VS Code/VSCodium portable jako użytkownik agenta
+#
+#   run-vscode [argumenty edytora / ścieżki projektów]
+#
+# UCZCIWA GRANICA: aplikacje graficzne NIE działają w bwrap bez
+# udostępnienia socketów sesji — dlatego edytor działa POZA sandboxem,
+# ale: (1) wyłącznie na koncie agenta, (2) w trybie Portable — wszystkie
+# dane w work6/tools/vscode/data, (3) ze środowiskiem czyszczonym env -i
+# i HOME wymuszonym do work6/home. Uruchamiaj z WŁASNEJ sesji graficznej
+# użytkownika agenta.
+# ============================================================================
+set -Eeuo pipefail
+ROOT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+# shellcheck source=../lib/common.sh
+. "$ROOT_DIR/lib/common.sh"
+common_init
+
+require_agent_user
+require_owned_dir "$WORK6"
+
+case "${VSCODE_FLAVOR:-vscodium}" in
+  vscodium) BIN="$WORK6/tools/vscode/current/bin/codium" ;;
+  vscode)   BIN="$WORK6/tools/vscode/current/bin/code" ;;
+  *) die "VSCODE_FLAVOR: '$VSCODE_FLAVOR'?" ;;
+esac
+[ -x "$BIN" ] || die "brak edytora — uruchom: setup-work6.sh --only vscode"
+
+if [ -z "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ]; then
+  die "brak sesji graficznej (DISPLAY/WAYLAND_DISPLAY). Zaloguj się do sesji pulpitu jako ${AGENT_USER} i spróbuj ponownie."
+fi
+require_own_session
+
+WS="$WORK6/projects"
+launch_log run-vscode
+
+# env -i: nie dziedziczymy środowiska; przekazujemy tylko to, co niezbędne
+# dla GUI + środowisko work6. --password-store=basic: bez keyringa sesji.
+exec env -i \
+  HOME="$WORK6/home" \
+  USER="$AGENT_USER" LOGNAME="$AGENT_USER" SHELL=/bin/bash \
+  PATH="$(work6_sandbox_path "$WORK6")" \
+  LANG=C.UTF-8 LC_ALL=C.UTF-8 \
+  TMPDIR="$WORK6/tmp" \
+  XDG_CONFIG_HOME="$WORK6/config" XDG_CACHE_HOME="$WORK6/cache" \
+  XDG_DATA_HOME="$WORK6/home/.local/share" XDG_STATE_HOME="$WORK6/state" \
+  ${XDG_RUNTIME_DIR:+XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR"} \
+  ${DISPLAY:+DISPLAY="$DISPLAY"} \
+  ${XAUTHORITY:+XAUTHORITY="$XAUTHORITY"} \
+  ${WAYLAND_DISPLAY:+WAYLAND_DISPLAY="$WAYLAND_DISPLAY"} \
+  "$BIN" --password-store=basic "$@"

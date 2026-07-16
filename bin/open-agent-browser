@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# ============================================================================
+# work6 — open-agent-browser — dedykowana przeglądarka do OAuth agenta
+#
+#   open-agent-browser [URL...]
+#
+# Zasady (patrz README, sekcja OAuth):
+#   * działa WYŁĄCZNIE jako użytkownik agenta, w JEGO sesji graficznej,
+#   * zawsze profil work6/browser-profile (--user-data-dir), nigdy
+#     profil systemowy/administratora; zero importu cookies/haseł,
+#   * --password-store=basic — bez keyringa sesji,
+#   * env -i — nie dziedziczy środowiska wywołującego,
+#   * przy OAUTH_MODE=headless-remote ten launcher nie ma racji bytu —
+#     wypisuje instrukcję logowania z innego urządzenia.
+# Przeglądarka: systemowy Chromium (apt) albo Chromium Playwrighta.
+# ============================================================================
+set -Eeuo pipefail
+ROOT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+# shellcheck source=../lib/common.sh
+. "$ROOT_DIR/lib/common.sh"
+common_init
+
+require_agent_user
+require_owned_dir "$WORK6"
+
+if [ -z "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ]; then
+  error "brak sesji graficznej (DISPLAY/WAYLAND_DISPLAY)."
+  case "${OAUTH_MODE:-desktop-session}" in
+    headless-remote|shared-gui)
+      info "tryb ${OAUTH_MODE}: skopiuj URL logowania z CLI i otwórz go w DEDYKOWANYM"
+      info "profilu przeglądarki na innym urządzeniu (konto do automatyzacji!)." ;;
+    *)
+      info "zaloguj się do sesji pulpitu jako ${AGENT_USER} i uruchom ponownie." ;;
+  esac
+  exit 1
+fi
+require_own_session
+
+# Wybór przeglądarki: apt-owy Chromium > Chromium Playwrighta.
+BROWSER=""
+for c in /usr/bin/chromium /usr/bin/chromium-browser; do
+  [ -x "$c" ] && { BROWSER="$c"; break; }
+done
+if [ -z "$BROWSER" ]; then
+  # najnowszy chromium z work6/browsers (sort -V po nazwie katalogu)
+  BROWSER="$(find "$WORK6/browsers" -maxdepth 3 -type f -name chrome \
+    -path '*chromium-*/chrome-linux/*' 2>/dev/null | sort -V | tail -n1 || true)"
+fi
+[ -n "$BROWSER" ] && [ -x "$BROWSER" ] \
+  || die "brak Chromium: zainstaluj systemowy (prepare-system.sh) albo Playwright (setup-work6.sh --only playwright)"
+
+ensure_dir "$WORK6/browser-profile" 0700
+launch_log open-agent-browser
+info "przeglądarka: $BROWSER (profil: $WORK6/browser-profile)"
+info "loguj wyłącznie konta przeznaczone dla automatyzacji."
+
+exec env -i \
+  HOME="$WORK6/home" \
+  USER="$AGENT_USER" LOGNAME="$AGENT_USER" SHELL=/bin/bash \
+  PATH=/usr/bin:/bin \
+  LANG=C.UTF-8 LC_ALL=C.UTF-8 \
+  TMPDIR="$WORK6/tmp" \
+  XDG_CONFIG_HOME="$WORK6/config" XDG_CACHE_HOME="$WORK6/cache" \
+  XDG_DATA_HOME="$WORK6/home/.local/share" XDG_STATE_HOME="$WORK6/state" \
+  ${XDG_RUNTIME_DIR:+XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR"} \
+  ${DISPLAY:+DISPLAY="$DISPLAY"} \
+  ${XAUTHORITY:+XAUTHORITY="$XAUTHORITY"} \
+  ${WAYLAND_DISPLAY:+WAYLAND_DISPLAY="$WAYLAND_DISPLAY"} \
+  "$BROWSER" \
+  --user-data-dir="$WORK6/browser-profile" \
+  --no-first-run --no-default-browser-check \
+  --password-store=basic \
+  "$@"

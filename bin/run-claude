@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# ============================================================================
+# work6 — run-claude — Claude Code CLI ZAWSZE wewnątrz sandboxa bwrap
+#
+#   run-claude [--workspace KATALOG] [argumenty claude...]
+#
+# Tryb autonomii: domyślnie CLAUDE_MAX_MODE z install.env. Jednorazowo
+# można go OBNIŻYĆ zmienną AGENT_CLAUDE_MODE=default|plan|acceptEdits|bypass
+# — nigdy podnieść powyżej maksimum z konfiguracji.
+#
+# Uwaga uczciwości: ten limit to wygoda operacyjna, nie granica
+# bezpieczeństwa — granicą jest sandbox (zapis tylko w work6).
+# ============================================================================
+set -Eeuo pipefail
+ROOT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+# shellcheck source=../lib/common.sh
+. "$ROOT_DIR/lib/common.sh"
+common_init
+# shellcheck source=../lib/sandbox.sh
+. "$ROOT_DIR/lib/sandbox.sh"
+
+require_agent_user
+parse_launcher_args "$@"
+
+CLAUDE_BIN="$WORK6/tools/claude/current/claude"
+[ -x "$CLAUDE_BIN" ] \
+  || die "brak Claude Code — uruchom: setup-work6.sh --only claude"
+
+_mode_rank() {
+  case "$1" in
+    bypass) echo 2 ;;
+    acceptEdits) echo 1 ;;
+    default|plan) echo 0 ;;
+    *) die "nieznany tryb: '$1' (default|plan|acceptEdits|bypass)" ;;
+  esac
+}
+
+max_mode="${CLAUDE_MAX_MODE:-default}"
+req_mode="${AGENT_CLAUDE_MODE:-$max_mode}"
+if [ "$(_mode_rank "$req_mode")" -gt "$(_mode_rank "$max_mode")" ]; then
+  warn "AGENT_CLAUDE_MODE=$req_mode przekracza maksimum ($max_mode) — obniżam"
+  req_mode="$max_mode"
+fi
+
+# Nie dokładamy flag trybu, jeśli użytkownik podał własne.
+mode_flags=()
+user_has_mode=0
+for a in "${LAUNCH_ARGS[@]}"; do
+  case "$a" in
+    --permission-mode|--permission-mode=*|--dangerously-skip-permissions|--allow-dangerously-skip-permissions)
+      user_has_mode=1 ;;
+  esac
+done
+if [ "$user_has_mode" -eq 0 ]; then
+  case "$req_mode" in
+    bypass)      mode_flags=(--dangerously-skip-permissions) ;;
+    acceptEdits) mode_flags=(--permission-mode acceptEdits) ;;
+    plan)        mode_flags=(--permission-mode plan) ;;
+    default)     mode_flags=() ;;
+  esac
+fi
+
+# Podpowiedź przy pierwszym uruchomieniu (brak zapisanych poświadczeń).
+if [ ! -s "$WORK6/home/.claude/.credentials.json" ]; then
+  info "wygląda na pierwsze uruchomienie — w sesji użyj /login (lub 'claude auth login')."
+  case "${OAUTH_MODE:-desktop-session}" in
+    desktop-session)
+      info "URL logowania otwórz przez: $WORK6/bin/open-agent-browser '<URL>'" ;;
+    *)
+      info "URL logowania otwórz w DEDYKOWANYM profilu przeglądarki na innym urządzeniu," ;;
+  esac
+  info "loguj konto przeznaczone dla automatyzacji, nie swoje główne."
+fi
+
+launch_log "run-claude[$req_mode]"
+[ "$req_mode" = "bypass" ] \
+  && info "tryb: bypass (--dangerously-skip-permissions) — pełna autonomia w sandboxie"
+sandbox_exec net "$WS" -- "$CLAUDE_BIN" "${mode_flags[@]}" "${LAUNCH_ARGS[@]}"

@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# ============================================================================
+# work6 — run-agy — Antigravity CLI ZAWSZE wewnątrz sandboxa bwrap
+#
+#   run-agy [--workspace KATALOG] [argumenty agy...]
+#
+# Autonomia: agy nie ma udokumentowanych flag autonomii (2026-07) —
+# uruchamiamy w trybie domyślnym; ewentualne flagi przekazuj wprost
+# (sprawdź `run-agy --help`). W sandboxie nie ma keyringa — agy używa
+# ścieżki „SSH": drukuje URL autoryzacji do otwarcia w przeglądarce.
+# ============================================================================
+set -Eeuo pipefail
+ROOT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+# shellcheck source=../lib/common.sh
+. "$ROOT_DIR/lib/common.sh"
+common_init
+# shellcheck source=../lib/sandbox.sh
+. "$ROOT_DIR/lib/sandbox.sh"
+
+require_agent_user
+parse_launcher_args "$@"
+
+AGY_BIN="$WORK6/tools/agy/current/agy"
+[ -x "$AGY_BIN" ] || die "brak Antigravity CLI — uruchom: setup-work6.sh --only agy"
+
+if [ ! -e "$WORK6/home/.config/antigravity" ] \
+   && [ ! -e "$WORK6/home/.antigravity" ]; then
+  info "prawdopodobnie pierwsze uruchomienie agy — pokaże URL autoryzacji."
+  case "${OAUTH_MODE:-desktop-session}" in
+    desktop-session)
+      info "URL otwórz przez: $WORK6/bin/open-agent-browser '<URL>'" ;;
+    *)
+      info "URL otwórz w DEDYKOWANYM profilu przeglądarki na innym urządzeniu." ;;
+  esac
+  info "loguj konto przeznaczone dla automatyzacji, nie swoje główne."
+fi
+
+launch_log run-agy
+sandbox_exec net "$WS" -- "$AGY_BIN" "${LAUNCH_ARGS[@]}"
