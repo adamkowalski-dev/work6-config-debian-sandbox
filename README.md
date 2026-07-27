@@ -111,7 +111,7 @@ cd ~/work6-config
 Kreator zapyta o: komponenty (Node/Python/Claude/agy/Playwright/
 Flutter/VS Code), politykę wersji Node (pin 24.x ↔ follow-LTS), kanał
 i **tryb autonomii** Claude (default/acceptEdits/bypass — zawsze tylko
-w sandboxie), silniki Playwrighta, kanał+targety Fluttera,
+w sandboxie) oraz agy (default/bypass), silniki Playwrighta, kanał+targety Fluttera,
 VSCodium↔VS Code + rozszerzenia, wariant OAuth/GUI. Potem: preflight
 (czego brakuje w systemie — dokładna lista dla administratora),
 pobrania **z weryfikacją sum/podpisów** (Claude Code: manifest
@@ -152,8 +152,10 @@ z podpowiedzią (`sudo -iu ai-agent ...`).
 
 Tryb autonomii Claude: domyślnie ten z kreatora (`CLAUDE_MAX_MODE`).
 Jednorazowe obniżenie: `AGENT_CLAUDE_MODE=default ~/work6/bin/run-claude`.
-Podniesienie powyżej maksimum jest blokowane. Dla `agy` flag autonomii
-nie dokładamy (brak w dokumentacji 2026-07) — sprawdź `run-agy --help`.
+Podniesienie powyżej maksimum jest blokowane. `agy` działa analogicznie:
+domyślny tryb z kreatora (`AGY_MAX_MODE`, domyślnie `bypass` =
+`--dangerously-skip-permissions`), jednorazowe obniżenie
+`AGENT_AGY_MODE=default ~/work6/bin/run-agy`.
 
 Do ręcznej pracy poza sandboxem (npm/pip/git we własnej powłoce):
 `source ~/work6/scripts/activate.sh` — ustawia PATH/zmienne, nie

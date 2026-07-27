@@ -4,10 +4,17 @@
 #
 #   run-agy [--workspace KATALOG] [argumenty agy...]
 #
-# Autonomia: agy nie ma udokumentowanych flag autonomii (2026-07) —
-# uruchamiamy w trybie domyślnym; ewentualne flagi przekazuj wprost
-# (sprawdź `run-agy --help`). W sandboxie nie ma keyringa — agy używa
-# ścieżki „SSH": drukuje URL autoryzacji do otwarcia w przeglądarce.
+# Tryb autonomii: domyślnie AGY_MAX_MODE z install.env (domyślnie bypass).
+# Jednorazowo można go OBNIŻYĆ zmienną AGENT_AGY_MODE=default|bypass —
+# nigdy podnieść powyżej maksimum z konfiguracji. bypass dokłada
+# --dangerously-skip-permissions (flaga zweryfikowana w oficjalnej
+# dokumentacji: antigravity.google/docs/cli/using, 2026-07).
+#
+# Uwaga uczciwości: ten limit to wygoda operacyjna, nie granica
+# bezpieczeństwa — granicą jest sandbox (zapis tylko w work6).
+#
+# W sandboxie nie ma keyringa — agy używa ścieżki „SSH": drukuje URL
+# autoryzacji do otwarcia w przeglądarce.
 # ============================================================================
 set -Eeuo pipefail
 ROOT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
@@ -23,6 +30,36 @@ parse_launcher_args "$@"
 AGY_BIN="$WORK6/tools/agy/current/agy"
 [ -x "$AGY_BIN" ] || die "brak Antigravity CLI — uruchom: setup-work6.sh --only agy"
 
+# Tryb autonomii — jak w run-claude, ale agy zna tylko default|bypass.
+_agy_rank() {
+  case "$1" in
+    bypass) echo 1 ;;
+    default) echo 0 ;;
+    *) die "nieznany tryb agy: '$1' (default|bypass)" ;;
+  esac
+}
+
+max_mode="${AGY_MAX_MODE:-bypass}"
+req_mode="${AGENT_AGY_MODE:-$max_mode}"
+if [ "$(_agy_rank "$req_mode")" -gt "$(_agy_rank "$max_mode")" ]; then
+  warn "AGENT_AGY_MODE=$req_mode przekracza maksimum ($max_mode) — obniżam"
+  req_mode="$max_mode"
+fi
+
+# Nie dokładamy flagi trybu, jeśli użytkownik podał własną flagę
+# uprawnień/sandboxa agy.
+mode_flags=()
+user_has_mode=0
+for a in "${LAUNCH_ARGS[@]}"; do
+  case "$a" in
+    --dangerously-skip-permissions|--sandbox|--sandbox=*|--no-sandbox)
+      user_has_mode=1 ;;
+  esac
+done
+if [ "$user_has_mode" -eq 0 ] && [ "$req_mode" = "bypass" ]; then
+  mode_flags=(--dangerously-skip-permissions)
+fi
+
 if [ ! -e "$WORK6/home/.config/antigravity" ] \
    && [ ! -e "$WORK6/home/.antigravity" ]; then
   info "prawdopodobnie pierwsze uruchomienie agy — pokaże URL autoryzacji."
@@ -35,5 +72,7 @@ if [ ! -e "$WORK6/home/.config/antigravity" ] \
   info "loguj konto przeznaczone dla automatyzacji, nie swoje główne."
 fi
 
-launch_log run-agy
-sandbox_exec net "$WS" -- "$AGY_BIN" "${LAUNCH_ARGS[@]}"
+launch_log "run-agy[$req_mode]"
+[ "$req_mode" = "bypass" ] \
+  && info "tryb: bypass (--dangerously-skip-permissions) — pełna autonomia w sandboxie"
+sandbox_exec net "$WS" -- "$AGY_BIN" "${mode_flags[@]}" "${LAUNCH_ARGS[@]}"

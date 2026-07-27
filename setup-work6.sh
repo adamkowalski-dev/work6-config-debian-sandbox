@@ -65,6 +65,7 @@ INSTALL_CLAUDE="$INSTALL_CLAUDE"
 CLAUDE_CHANNEL="$CLAUDE_CHANNEL"
 CLAUDE_MAX_MODE="$CLAUDE_MAX_MODE"
 INSTALL_AGY="$INSTALL_AGY"
+AGY_MAX_MODE="$AGY_MAX_MODE"
 INSTALL_PLAYWRIGHT="$INSTALL_PLAYWRIGHT"
 PLAYWRIGHT_ENGINES="$PLAYWRIGHT_ENGINES"
 INSTALL_FLUTTER="$INSTALL_FLUTTER"
@@ -126,8 +127,12 @@ wizard() {
 
   ask_component INSTALL_AGY "Antigravity CLI (agy)"
   if is_yes "$INSTALL_AGY"; then
-    info "agy nie ma udokumentowanych flag autonomii (2026-07) — launcher"
-    info "uruchamia go w trybie domyślnym; sprawdź 'agy --help' po instalacji."
+    info "Tryb autonomii launchera run-agy (zawsze WEWNĄTRZ sandboxa bwrap):"
+    info "  default — agy pyta o każde działanie"
+    info "  bypass  — --dangerously-skip-permissions: pełna autonomia,"
+    info "            zapis możliwy tylko w katalogach work6 widocznych w sandboxie"
+    choose AGY_MAX_MODE "Maksymalny (i domyślny) tryb autonomii agy" \
+      "${AGY_MAX_MODE:-bypass}" default bypass
   fi
 
   ask_component INSTALL_PLAYWRIGHT "Playwright (przeglądarki w work6/browsers)"
@@ -174,7 +179,7 @@ wizard() {
   local v
   for v in INSTALL_NODE NODE_POLICY NODE_MAJOR_PIN INSTALL_PYTHON \
            INSTALL_CLAUDE CLAUDE_CHANNEL CLAUDE_MAX_MODE INSTALL_AGY \
-           INSTALL_PLAYWRIGHT PLAYWRIGHT_ENGINES INSTALL_FLUTTER \
+           AGY_MAX_MODE INSTALL_PLAYWRIGHT PLAYWRIGHT_ENGINES INSTALL_FLUTTER \
            FLUTTER_CHANNEL FLUTTER_TARGETS INSTALL_VSCODE VSCODE_FLAVOR \
            VSCODE_EXTENSIONS OAUTH_MODE WANT_SYSTEM_CHROMIUM; do
     printf '  %-22s %s\n' "$v" "${!v}"

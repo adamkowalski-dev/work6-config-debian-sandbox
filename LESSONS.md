@@ -71,8 +71,13 @@ sprawdzaj datę.
   **w sesji SSH/headless wykrywa to i drukuje URL** do autoryzacji na
   innym urządzeniu — to samo zachowanie ratuje nas w sandboxie bwrap
   (brak keyringa/D-Bus → ścieżka „SSH"). Wylogowanie: `/logout` w TUI.
-- Flagi autonomii: **nieudokumentowane** publicznie (2026-07-16) — nie
-  zgadywać, sprawdzać `agy --help` po instalacji.
+- Flagi autonomii (zweryfikowane 2026-07-23,
+  <https://antigravity.google/docs/cli/using>): **`--dangerously-skip-permissions`**
+  auto-akceptuje wszystkie żądania uprawnień na starcie (odpowiednik
+  „YOLO"/no-confirmation; dokładnie ta sama nazwa co w Claude Code), oraz
+  **`--sandbox`** (własny preset „proceed-in-sandbox" agy). U nas bypass =
+  `--dangerously-skip-permissions`, sterowane `AGY_MAX_MODE` w install.env
+  (jak `CLAUDE_MAX_MODE`); `--sandbox` agy nie używamy — izolację daje bwrap.
 - Czyta `AGENTS.md` (konwencja Antigravity/Gemini), nie `CLAUDE.md`.
 
 ## Debian 13 (trixie) — bwrap i user namespaces
