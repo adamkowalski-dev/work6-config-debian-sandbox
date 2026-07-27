@@ -53,7 +53,7 @@ zapasowych ani launcherów.
 ├── projects/         # JEDYNE miejsce na kod (w sandboxie też /workspace)
 ├── browsers/         # binaria Playwrighta (PLAYWRIGHT_BROWSERS_PATH)
 ├── browser-profile/  # profil Chromium wyłącznie do OAuth
-├── scripts/          # activate, update-tools, backup, restore, doctor, new-project
+├── scripts/          # activate, enable-agent-path, update-tools, backup, restore, doctor, new-project
 ├── backups/          # archiwa konfiguracji (poza sandboxem)
 ├── downloads/        # pobrania instalatora (poza sandboxem)
 ├── runtime/          # pliki generowane na start sandboxa
@@ -160,6 +160,20 @@ domyślny tryb z kreatora (`AGY_MAX_MODE`, domyślnie `bypass` =
 Do ręcznej pracy poza sandboxem (npm/pip/git we własnej powłoce):
 `source ~/work6/scripts/activate.sh` — ustawia PATH/zmienne, nie
 zmienia HOME i nie dotyka plików startowych powłoki.
+
+Jeśli chcesz wołać launchery bez pełnej ścieżki (`run-claude` zamiast
+`~/work6/bin/run-claude`), jest opt-in skrót — jedyny skrypt work6,
+który dotyka pliku startowego powłoki, i tylko na wyraźne wywołanie
+oraz za potwierdzeniem:
+
+```bash
+~/work6/scripts/enable-agent-path.sh            # dopisz <work6>/bin do PATH w ~/.bashrc
+~/work6/scripts/enable-agent-path.sh --remove   # cofnij
+```
+
+Dodaje wyłącznie `<work6>/bin` (launchery są samowystarczalne) w bloku
+z markerami, idempotentnie. Pełne środowisko do ręcznej pracy to nadal
+`source scripts/activate.sh`.
 
 ## 8. Logowanie OAuth — bezpiecznie
 
