@@ -168,3 +168,48 @@ sprawdzaj datę.
   `/run/user/<uid>` (`--perms 0700 --dir`); fałszywe minimalne
   `/etc/passwd` i `/etc/group` generowane per start (nie bindować
   hostowych — wyciekają listę użytkowników).
+
+## Aktualizacje narzędzi — pułapki (2026-07)
+
+- **Kanał ≠ „najnowsza wersja".** Claude Code wystawia `stable`
+  i `latest` pod `downloads.claude.ai/claude-code-releases/<kanał>`
+  i potrafią się różnić o kilka wydań (2026-07-27: stable 2.1.212,
+  latest 2.1.220). „Nie widzi nowej wersji" to najczęściej kanał,
+  nie błąd — dlatego `--check` pokazuje oba.
+- **`die` w funkcji diagnostycznej to zniknięty błąd.** Wzorzec
+  `rem="$(mod_remote_version 2>/dev/null || true)"` zamienia każdą
+  awarię w pusty string i komunikat „nie mogę ustalić wersji".
+  Funkcje wołane z dry-runu nie mogą wywoływać `die` — mają zwracać
+  kod ≠ 0 i pisać powód na stderr; maskowanie stderr jest zakazane.
+- **Kopia vs źródło.** `update-tools.sh` ładuje moduły z
+  `work6/setup.d` (kopia robiona przez `sync_files()` w
+  `setup-work6.sh`), a nie z repo. Po `git pull` aktualizacja leci
+  starym kodem, dopóki nie odpalisz setupu — objaw „poprawka jest
+  w repo, a nic się nie dzieje". Rozjazd trzeba wykrywać (`cmp`)
+  i przerywać, a nie synchronizować po cichu: kopiowanie launcherów
+  to operacja setupu, nie aktualizacji narzędzi.
+- **Wersję czytaj z binarki, nie z pliku.** `versions.env` kłamie po
+  self-updacie, po restore z backupu i po nieudanym zapisie. Plik
+  zostaje jako fallback i jako punkt odniesienia do wykrywania dryfu.
+- **Porównanie wersji przez `=` na stringach nie odróżnia upgrade'u
+  od downgrade'u.** Przy agy to realne, bo self-update'uje się w tle
+  i binarka bywa nowsza niż manifest. Potrzebne porównanie semver
+  i domyślna odmowa cofania wersji (`--force` tylko świadomie).
+- `--force` może omijać **porównanie wersji**, nigdy weryfikację
+  pobrania: pin GPG i sumy obowiązują zawsze.
+- **Porównanie semver w bashu — świadomie niepełne.** Nasze
+  `semver_cmp` obcina sufiks przedwydaniowy, więc `2.0.0-rc1` ==
+  `2.0.0`. Pełne reguły precedencji semver (brak sufiksu > sufiks,
+  potem porównanie człon po członie, numeryczne przed alfanumerycznymi)
+  to spory kawałek kodu, a kanały stable/latest Claude Code i manifest
+  agy sufiksów nie używają. Koszt: na kanale RC przejście
+  `rc → finalna` nie zostanie wykryte i wymaga `--force`. Ograniczenie
+  udokumentowane przy funkcji — takie kompromisy trzeba zapisywać
+  w kodzie, bo inaczej wracają jako „dziwny bug" pół roku później.
+- Auto-updater trzeba wyłączać **idempotentnie**. Zapis
+  `settings.json` tylko „gdy pliku nie ma" zostawia furtkę: przy
+  istniejącym pliku Claude doaktualizuje się sam i rozjedzie z tym,
+  co zweryfikowaliśmy podpisem.
+- `scripts/` jest niewidoczny z sandboxa, więc `update-tools.sh`
+  uruchamia się **na koncie agenta, poza bwrap** — nie z
+  `agent-shell`. To nie niedopatrzenie, tylko celowa granica.

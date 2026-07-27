@@ -33,9 +33,14 @@ agy_platform() {
 # Manifest pobieramy raz na przebieg.
 _AGY_MANIFEST_JSON=""
 _agy_manifest() {
+  local out
   if [ -z "$_AGY_MANIFEST_JSON" ]; then
-    _AGY_MANIFEST_JSON="$(download_stdout "$AGY_MANIFEST_BASE/manifests/$(agy_platform).json")"
-    [ -n "$_AGY_MANIFEST_JSON" ] || die "agy: pusty manifest release'ów"
+    if ! out="$(download_stdout "$AGY_MANIFEST_BASE/manifests/$(agy_platform).json" 2>&1)"; then
+      error "agy: nie mogę pobrać manifestu release'ów: $out"
+      return 1
+    fi
+    [ -n "$out" ] || { error "agy: pusty manifest release'ów"; return 1; }
+    _AGY_MANIFEST_JSON="$out"
   fi
   printf '%s' "$_AGY_MANIFEST_JSON"
 }
@@ -48,17 +53,40 @@ agy_installed_version() {
     | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 || true
 }
 
+# Wersja zapisana przy ostatniej instalacji — agy self-update'uje się
+# w tle, więc rozjazd z agy_installed_version jest normalny i raportowany.
+agy_recorded_version() { read_kv "$VERSIONS_FILE" AGY_VERSION; }
+
+# NIE wywołuje die — patrz komentarz przy claude_remote_version.
 agy_remote_version() {
+  local json ver
   need_cmd jq "apt install jq"
-  _agy_manifest | jq -r '.version // empty'
+  json="$(_agy_manifest)" || return 1
+  ver="$(printf '%s' "$json" | jq -r '.version // empty' 2>/dev/null || true)"
+  if [ -z "$ver" ]; then
+    error "agy: manifest nie zawiera pola .version"
+    return 1
+  fi
+  printf '%s' "$ver"
+}
+
+agy_channel_note() {
+  local run rec
+  run="$(agy_installed_version)"
+  rec="$(agy_recorded_version)"
+  [ -n "$run" ] && [ -n "$rec" ] && [ "$run" != "$rec" ] \
+    && printf 'self-update w tle: działa %s, zainstalowano %s' "$run" "$rec"
+  return 0
 }
 
 agy_install() {
-  local action="$1" ver url sha512 payload extract_dir dest old
+  local action="$1" ver url sha512 payload extract_dir dest old json
   need_cmd jq "apt install jq"
-  ver="$(agy_remote_version)"
-  url="$(_agy_manifest | jq -r '.url // empty')"
-  sha512="$(_agy_manifest | jq -r '.sha512 // empty')"
+  ver="$(agy_remote_version)" \
+    || die "agy: nie mogę ustalić wersji do instalacji (szczegóły wyżej)"
+  json="$(_agy_manifest)" || die "agy: brak manifestu"
+  url="$(printf '%s' "$json" | jq -r '.url // empty')"
+  sha512="$(printf '%s' "$json" | jq -r '.sha512 // empty')"
   [ -n "$ver" ] && [ -n "$url" ] && [ -n "$sha512" ] \
     || die "agy: niekompletny manifest (version/url/sha512)"
   case "$url" in
