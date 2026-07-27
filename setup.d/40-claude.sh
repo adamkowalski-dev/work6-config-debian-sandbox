@@ -35,20 +35,57 @@ claude_platform() {
   fi
 }
 
+# Źródłem prawdy jest BINARKA, nie versions.env: Claude Code potrafi się
+# doaktualizować sam (albo plik odjeżdża po restore z backupu), a wtedy
+# zapis w versions.env kłamie. versions.env zostaje jako fallback, gdy
+# binarka nie odpowiada.
 claude_installed_version() {
-  local bin="$WORK6/tools/claude/current/claude"
+  local bin="$WORK6/tools/claude/current/claude" ver
   [ -x "$bin" ] || return 0
-  read_kv "$VERSIONS_FILE" CLAUDE_VERSION
+  ver="$(timeout 20 env HOME="$WORK6/home" \
+    CLAUDE_CONFIG_DIR="$WORK6/home/.claude" "$bin" --version 2>/dev/null \
+    | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 || true)"
+  [ -n "$ver" ] || ver="$(read_kv "$VERSIONS_FILE" CLAUDE_VERSION)"
+  printf '%s' "$ver"
 }
 
+# Wersja zapisana przy ostatniej instalacji — do wykrywania dryfu.
+claude_recorded_version() { read_kv "$VERSIONS_FILE" CLAUDE_VERSION; }
+
+# NIE wywołuje die: to funkcja diagnostyczna, wołana także z --check.
+# Błąd → komunikat na stderr i kod 1, żeby wywołujący mógł pokazać powód
+# zamiast cichego „nie mogę ustalić wersji".
 claude_remote_version() {
   local ch="${CLAUDE_CHANNEL:-stable}" ver
   case "$ch" in
-    stable|latest) ver="$(download_stdout "$CLAUDE_DL_BASE/$ch")" ;;
+    stable|latest)
+      if ! ver="$(download_stdout "$CLAUDE_DL_BASE/$ch" 2>&1)"; then
+        error "Claude Code: nie mogę pobrać wersji z kanału '$ch': $ver"
+        return 1
+      fi
+      ;;
     *) ver="$ch" ;;
   esac
-  [[ "$ver" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]] || die "Claude Code: niepoprawna wersja: '$ver'"
+  ver="$(printf '%s' "$ver" | tr -d '[:space:]')"
+  if ! [[ "$ver" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+    error "Claude Code: kanał '$ch' zwrócił coś, co nie jest wersją: '${ver:0:80}'"
+    return 1
+  fi
   printf '%s' "$ver"
+}
+
+# Co jest na DRUGIM kanale — czysto informacyjnie, żeby było widać dystans
+# między stable a latest i dało się świadomie zdecydować o przełączeniu.
+claude_channel_note() {
+  local ch="${CLAUDE_CHANNEL:-stable}" other ver
+  case "$ch" in
+    stable) other="latest" ;;
+    latest) other="stable" ;;
+    *) return 0 ;;
+  esac
+  ver="$(download_stdout "$CLAUDE_DL_BASE/$other" 2>/dev/null | tr -d '[:space:]')" || return 0
+  [[ "$ver" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]] || return 0
+  printf 'kanał %s ma %s (zmiana: CLAUDE_CHANNEL w config/install.env)' "$other" "$ver"
 }
 
 # Weryfikacja podpisu GPG manifestu w JEDNORAZOWYM, izolowanym keyringu.
@@ -78,7 +115,8 @@ _claude_verify_manifest() {
 
 claude_install() {
   local action="$1" ver plat manifest sig keyfile checksum bin_url bin_dl dest old
-  ver="$(claude_remote_version)"
+  ver="$(claude_remote_version)" \
+    || die "Claude Code: nie mogę ustalić wersji do instalacji (szczegóły wyżej)"
   plat="$(claude_platform)"
   need_cmd jq "apt install jq"
 
@@ -113,17 +151,32 @@ claude_install() {
   ok "claude --version: $(HOME="$WORK6/home" CLAUDE_CONFIG_DIR="$WORK6/home/.claude" "$dest/claude" --version 2>/dev/null | head -n1)"
 
   # Ustawienia: wyłączony auto-update (aktualizacje tylko update-tools.sh).
+  # Wymuszamy to TAKŻE gdy plik już istnieje — inaczej Claude Code
+  # doaktualizowałby się sam i rozjechał z tym, co zweryfikowaliśmy
+  # podpisem GPG. Reszta ustawień użytkownika zostaje nietknięta.
   ensure_dir "$WORK6/home/.claude" 0700
-  if [ ! -f "$WORK6/home/.claude/settings.json" ]; then
-    cat >"$WORK6/home/.claude/settings.json" <<'EOF'
+  local settings="$WORK6/home/.claude/settings.json" stmp
+  if [ ! -f "$settings" ]; then
+    cat >"$settings" <<EOF
 {
-  "autoUpdatesChannel": "stable",
+  "autoUpdatesChannel": "${CLAUDE_CHANNEL:-stable}",
   "env": {
     "DISABLE_AUTOUPDATER": "1"
   }
 }
 EOF
-    chmod 0600 "$WORK6/home/.claude/settings.json"
+    chmod 0600 "$settings"
+  elif ! jq -e '.env.DISABLE_AUTOUPDATER == "1"' "$settings" >/dev/null 2>&1; then
+    stmp="$(mktemp "${settings}.XXXXXX")"
+    if jq '.env.DISABLE_AUTOUPDATER = "1"' "$settings" >"$stmp" 2>/dev/null; then
+      chmod 0600 "$stmp"
+      mv -- "$stmp" "$settings"
+      ok "Claude Code: auto-updater wyłączony w istniejącym settings.json"
+    else
+      rm -f -- "$stmp"
+      warn "Claude Code: settings.json nie jest poprawnym JSON — NIE mogę wyłączyć"
+      warn "auto-updatera; popraw plik ręcznie: $settings"
+    fi
   fi
 
   record_component claude "$ver" "$bin_url" "$checksum" "$action"

@@ -96,6 +96,32 @@ have_cmd() { command -v "$1" >/dev/null 2>&1; }
 
 timestamp() { date +%Y-%m-%dT%H:%M:%S%z; }
 
+# --- porównywanie wersji ------------------------------------------------------
+# Wersje bywają zapisane raz z "v", raz bez, i z sufiksem (-rc1, +meta).
+# Do porównania bierzemy wyłącznie człony numeryczne MAJOR.MINOR.PATCH.
+version_core() {
+  local v="${1#v}"
+  v="${v%%[-+]*}"
+  printf '%s' "$v"
+}
+
+# semver_cmp A B — kod wyjścia: 0 gdy A==B, 1 gdy A>B, 2 gdy A<B,
+# 3 gdy któraś wersja jest niepoprawna (wtedy NIE zgadujemy kierunku).
+semver_cmp() {
+  local a b ai bi i
+  a="$(version_core "${1:-}")"; b="$(version_core "${2:-}")"
+  [[ "$a" =~ ^[0-9]+(\.[0-9]+)*$ ]] || return 3
+  [[ "$b" =~ ^[0-9]+(\.[0-9]+)*$ ]] || return 3
+  IFS='.' read -r -a ai <<<"$a"
+  IFS='.' read -r -a bi <<<"$b"
+  for i in 0 1 2; do
+    local x="${ai[$i]:-0}" y="${bi[$i]:-0}"
+    [ "$x" -gt "$y" ] && return 1
+    [ "$x" -lt "$y" ] && return 2
+  done
+  return 0
+}
+
 # Bezpieczne pobieranie: tylko HTTPS, retry, fail na HTTP >= 400.
 # download URL PLIK_DOCELOWY
 download() {

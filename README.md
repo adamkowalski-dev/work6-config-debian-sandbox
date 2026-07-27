@@ -220,18 +220,50 @@ widocznym też jako `/workspace`).
 
 ## 10. Aktualizacje
 
+**Z konta agenta, POZA sandboxem** — nie z `agent-shell`:
+
 ```bash
-~/work6/scripts/update-tools.sh            # wszystkie włączone komponenty
-~/work6/scripts/update-tools.sh claude agy # wybrane
+sudo -iu ai-agent
+~/work6/scripts/update-tools.sh --check     # tylko diagnoza, nic nie zmienia
+~/work6/scripts/update-tools.sh             # wszystkie włączone komponenty
+~/work6/scripts/update-tools.sh claude agy  # wybrane
 ```
 
-Pokazuje plan (obecna → dostępna), pyta, robi backup konfiguracji,
-aktualizuje **z tą samą weryfikacją co instalacja**, na końcu odpala
-`doctor.sh --quick`. Node trzyma się polityki z kreatora (pin 24.x /
-follow-LTS — uwaga: w 10.2026 Active LTS zmienia się na 26). Claude ma
-wyłączony auto-updater (aktualizujesz świadomie); **agy self-update'uje
-się sam w tle** — doctor raportuje dryf wersji względem manifestu.
-Pakiety systemowe: nigdy stąd — tylko `prepare-system.sh`.
+`scripts/` jest **celowo niewidoczny z sandboxa** (sekcja 1) — wewnątrz
+`agent-shell` tego skryptu po prostu nie ma i nie da się go uruchomić.
+To zamierzone: agent nie ma podmieniać narzędzi, którymi sam jest
+uruchamiany. Nie uruchamiaj też jako `root` ani ze swojego konta admina —
+launcher odmówi (`require_agent_user`), bo pliki muszą zostać własnością
+`ai-agent`.
+
+Zacznij zawsze od `--check`. Wypisuje per komponent: wersję lokalną,
+dostępną i **powód**, gdy czegoś nie robi — zamiast milczącego
+„pomijam". Potem uruchom bez flagi: pokazuje plan, pyta, robi backup
+konfiguracji, aktualizuje **z tą samą weryfikacją co instalacja**
+(podpis GPG + sumy), na końcu odpala `doctor.sh --quick`.
+
+Zasady bezpieczeństwa aktualizacji:
+
+- **nie cofa wersji** — porównanie semver, nie tekstowe; downgrade
+  wymaga jawnego `--force`,
+- **przerywa, gdy `work6/setup.d` jest inny niż repo** — inaczej
+  aktualizacja poleciałaby kodem sprzed `git pull`; napraw przez
+  `~/work6-config/setup-work6.sh --yes` (to on synchronizuje pliki),
+- weryfikacja pobrań jest nienaruszalna: pin GPG i sumy zawsze,
+  `--force` omija wyłącznie porównanie wersji,
+- pakiety systemowe: nigdy stąd — tylko `prepare-system.sh`.
+
+**Kanały Claude Code.** `CLAUDE_CHANNEL` w `config/install.env` to
+domyślnie `stable`, który potrafi być o kilka wydań w tyle za `latest`.
+Jeśli „nie widać nowej wersji", to zwykle właśnie to. `--check`
+pokazuje teraz również, co jest na drugim kanale, więc przełączenie
+jest świadomą decyzją, a nie zgadywanką.
+
+Node trzyma się polityki z kreatora (pin 24.x / follow-LTS — uwaga:
+w 10.2026 Active LTS zmienia się na 26). Claude ma wyłączony
+auto-updater (wymuszane też w istniejącym `settings.json`), więc
+aktualizujesz świadomie; **agy self-update'uje się sam w tle** —
+`--check` i `doctor.sh` raportują dryf względem manifestu.
 
 ## 11. Backup i restore
 
@@ -284,6 +316,11 @@ zapisywalny `/workspace`), wolne miejsce, ostrzeżenia o poszerzeniach
 | Chromium w sandboxie: błąd wewnętrznego sandboxa | zagnieżdżone userns zablokowane → w projekcie Playwrighta `launchOptions: { chromiumSandbox: false }` (zewnętrzną izolację daje bwrap) |
 | `claude` prosi o login mimo logowania | logowałeś się poza sandboxem (inne HOME) → zawsze przez `run-claude` |
 | agy ma inną wersję niż w `versions.env` | wbudowany self-update → `update-tools.sh agy` odświeży zapis |
+| `update-tools.sh: nie ma takiego pliku` | uruchamiasz **wewnątrz sandboxa** — `scripts/` jest stamtąd niewidoczny → wyjdź z `agent-shell` i uruchom z konta `ai-agent` |
+| „nie widzi nowej wersji" Claude | jesteś na kanale `stable`, a patrzysz na `latest` → `update-tools.sh --check` pokaże oba; kanał zmienisz w `config/install.env` |
+| `nie mogę ustalić dostępnej wersji — pomijam` | dawniej maskowało błąd; teraz `--check` podaje powód (sieć, format odpowiedzi, brak `jq`) |
+| poprawka jest w repo, ale nic się nie zmienia | `work6/setup.d` to kopia — dopiero `setup-work6.sh --yes` ją synchronizuje; `update-tools.sh` wykrywa rozjazd i przerywa |
+| `lokalna wersja jest nowsza niż dostępna` | to zabezpieczenie przed cofnięciem wersji (np. po self-update agy) → świadomy downgrade: `--force` |
 | `może zabraknąć miejsca` | Flutter/przeglądarki są duże → zwolnij miejsce albo odchudź wybór w `--reconfigure` |
 
 ## 15. Całkowite usunięcie środowiska
