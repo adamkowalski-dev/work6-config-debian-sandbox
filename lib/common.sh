@@ -99,6 +99,15 @@ timestamp() { date +%Y-%m-%dT%H:%M:%S%z; }
 # --- porównywanie wersji ------------------------------------------------------
 # Wersje bywają zapisane raz z "v", raz bez, i z sufiksem (-rc1, +meta).
 # Do porównania bierzemy wyłącznie człony numeryczne MAJOR.MINOR.PATCH.
+#
+# OGRANICZENIE: sufiks przedwydaniowy jest OBCINANY, więc 2.0.0-rc1
+# i 2.0.0 wychodzą jako RÓWNE (semver mówi, że rc1 jest wcześniejsze).
+# Skutek: na kanale RC aktualizacja rc -> finalna wersja nie zostanie
+# wykryta i wymaga `update-tools.sh --force`. Świadomy kompromis:
+# kanały stable/latest Claude Code i manifest agy nie używają sufiksów,
+# a pełne reguły precedencji semver to spory kawałek kodu w bashu.
+# Jeśli kiedyś dojdzie kanał z RC — trzeba tu dopisać porównanie
+# sufiksów (brak sufiksu > sufiks; dalej leksykograficznie po członach).
 version_core() {
   local v="${1#v}"
   v="${v%%[-+]*}"

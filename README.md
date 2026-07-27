@@ -253,6 +253,13 @@ Zasady bezpieczeństwa aktualizacji:
   `--force` omija wyłącznie porównanie wersji,
 - pakiety systemowe: nigdy stąd — tylko `prepare-system.sh`.
 
+**Znane ograniczenie porównania wersji.** `semver_cmp` obcina sufiksy
+przedwydaniowe, więc `2.0.0-rc1` i `2.0.0` uznaje za **równe**. Na
+kanałach `stable`/`latest` Claude Code i w manifeście agy sufiksy nie
+występują, więc w praktyce to nie gryzie — ale gdybyś kiedyś wszedł na
+kanał RC, przejście `rc → wersja finalna` nie zostanie wykryte
+i będzie wymagało `--force`.
+
 **Kanały Claude Code.** `CLAUDE_CHANNEL` w `config/install.env` to
 domyślnie `stable`, który potrafi być o kilka wydań w tyle za `latest`.
 Jeśli „nie widać nowej wersji", to zwykle właśnie to. `--check`

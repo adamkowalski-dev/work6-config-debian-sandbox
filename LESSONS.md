@@ -197,6 +197,15 @@ sprawdzaj datę.
   i domyślna odmowa cofania wersji (`--force` tylko świadomie).
 - `--force` może omijać **porównanie wersji**, nigdy weryfikację
   pobrania: pin GPG i sumy obowiązują zawsze.
+- **Porównanie semver w bashu — świadomie niepełne.** Nasze
+  `semver_cmp` obcina sufiks przedwydaniowy, więc `2.0.0-rc1` ==
+  `2.0.0`. Pełne reguły precedencji semver (brak sufiksu > sufiks,
+  potem porównanie człon po członie, numeryczne przed alfanumerycznymi)
+  to spory kawałek kodu, a kanały stable/latest Claude Code i manifest
+  agy sufiksów nie używają. Koszt: na kanale RC przejście
+  `rc → finalna` nie zostanie wykryte i wymaga `--force`. Ograniczenie
+  udokumentowane przy funkcji — takie kompromisy trzeba zapisywać
+  w kodzie, bo inaczej wracają jako „dziwny bug" pół roku później.
 - Auto-updater trzeba wyłączać **idempotentnie**. Zapis
   `settings.json` tylko „gdy pliku nie ma" zostawia furtkę: przy
   istniejącym pliku Claude doaktualizuje się sam i rozjedzie z tym,
