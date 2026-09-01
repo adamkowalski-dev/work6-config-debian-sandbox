@@ -87,7 +87,10 @@ sudo ./prepare-system.sh
 Skrypt (wszystko za potwierdzeniem): wykrywa Debiana i architekturę;
 instaluje minimalny zestaw APT (`bubblewrap ca-certificates curl wget
 git tar xz-utils gnupg jq unzip zip rsync file procps`, opcjonalnie
-`python3*` i `chromium`); tworzy/weryfikuje użytkownika agenta (pokazuje
+`python3*`, `chromium` oraz narzędzia CLI dla agenta `ripgrep` i
+`fd-find` — w sandboxie `/usr` jest RO, więc agent sam ich nie
+doinstaluje; binarka `fd-find` na Debianie nazywa się `fdfind`);
+tworzy/weryfikuje użytkownika agenta (pokazuje
 UID/HOME/grupy, ostrzega o grupach uprzywilejowanych); sprawdza
 uprawnienia katalogów domowych (proponuje `o-rwx`); testuje bwrap pod
 restrykcją userns/AppArmor Debiana 13; sprawdza dysk; kopiuje ten
@@ -394,7 +397,18 @@ launcherów.
 
 ## 15. Całkowite usunięcie środowiska
 
-Nie dotyka to Twojego konta ani systemu poza wymienionymi elementami:
+Najpierw raport (tylko odczyt, niczego nie usuwa): pokazuje działające
+procesy agenta, zajętość dysku, zainstalowane komponenty, pakiety
+systemowe stawiane dla work6 (kandydatów do `apt purge`) oraz ślady
+poza `work6` (crontab, linger):
+
+```bash
+sudo ~ai-agent/work6-config/scripts/pre-uninstall-report.sh
+```
+
+Samo usunięcie to celowo ręczne komendy — nie ma skryptu z `rm -rf`
+pod sudo. Nie dotyka to Twojego konta ani systemu poza wymienionymi
+elementami:
 
 ```bash
 # 1. (agent) — nic nie musi być uruchomione; sprawdź, że nie działają procesy:
@@ -408,7 +422,7 @@ sudo deluser --remove-home ai-agent
 
 # 4. (admin, opcjonalnie) pakiety instalowane dla work6 — usuń tylko te,
 #    których nie używasz gdzie indziej:
-sudo apt purge bubblewrap chromium   # + zależności Playwrighta wg stage2
+sudo apt purge bubblewrap chromium ripgrep fd-find   # + zależności wg stage2
 ```
 
 Tokeny/sesje agenta żyły wyłącznie w `work6` — po kroku 2 nie ma ich
