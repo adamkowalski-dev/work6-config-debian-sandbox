@@ -6,7 +6,9 @@
 #
 # Sprawdza: użytkownika, uprawnienia, zgodność kodu work6 z klonem repo,
 # komponenty, sandbox (w tym testy szczelności wewnątrz bwrap), miejsce
-# na dysku. Kod wyjścia:
+# na dysku. Złe tryby katalogów/plików work6 (0700/0600) i odziedziczony
+# setgid naprawia od ręki — to pliki własne agenta o jednej słusznej
+# wartości; ostrzega tylko, gdy naprawa się nie powiedzie. Kod wyjścia:
 #   0 = OK (ew. ostrzeżenia), 1 = problemy krytyczne.
 # --quick pomija wolne testy (wersje Fluttera itp.).
 # ============================================================================
@@ -49,19 +51,42 @@ if [ -d "$WORK6" ]; then
   [ "$(stat -c %u -- "$WORK6")" = "$(id -u)" ] \
     && pass "właściciel work6: $(id -un)" \
     || crit "work6 nie należy do $(id -un)"
-  [ "$(stat -c %a -- "$WORK6")" = "700" ] \
-    && pass "tryb work6: 0700" \
-    || warns "tryb work6 to $(stat -c %a -- "$WORK6"), oczekiwane 0700 (chmod 0700 '$WORK6')"
+  # Autonaprawa trybów: doctor jest właścicielem tych plików, a jedyna
+  # słuszna wartość jest znana — zaciskamy od ręki zamiast tylko ostrzegać
+  # (typowy przypadek: setgid odziedziczony po starym HOME 2775).
+  fix_mode() { # fix_mode <ścieżka> <tryb-bez-zera> <etykieta>
+    local path="$1" want="$2" label="$3" cur
+    cur="$(stat -c %a -- "$path")"
+    if [ "$cur" = "$want" ]; then
+      pass "tryb $label: 0$want"
+    # chmod z trybem krótszym niż 5 cyfr ZACHOWUJE setuid/setgid katalogu
+    # (gotcha GNU coreutils) — stąd "00$want", nie "0$want".
+    elif chmod "00$want" -- "$path" 2>/dev/null \
+         && [ "$(stat -c %a -- "$path")" = "$want" ]; then
+      pass "tryb $label: naprawiono $cur → 0$want"
+    else
+      warns "tryb $label: $cur (oczekiwane 0$want, naprawa nieudana — chmod 0$want '$path')"
+    fi
+  }
+  fix_mode "$WORK6" 700 "work6"
   for d in home config browser-profile backups state; do
     [ -d "$WORK6/$d" ] || { warns "brak katalogu $WORK6/$d"; continue; }
-    [ "$(stat -c %a -- "$WORK6/$d")" = "700" ] \
-      || warns "tryb $d: $(stat -c %a -- "$WORK6/$d") (oczekiwane 0700)"
+    fix_mode "$WORK6/$d" 700 "$d"
   done
   for f in "$CONFIG_FILE" "$VERSIONS_FILE"; do
     [ -f "$f" ] || continue
-    [ "$(stat -c %a -- "$f")" = "600" ] \
-      || warns "tryb $(basename "$f"): $(stat -c %a -- "$f") (oczekiwane 0600)"
+    fix_mode "$f" 600 "$(basename "$f")"
   done
+  # setgid na dowolnym podkatalogu work6 to zawsze spadek po środowisku
+  # sprzed utwardzenia — zdejmujemy wszędzie, nie tylko w audytowanych.
+  sgid_cnt="$(find "$WORK6" -type d -perm -2000 2>/dev/null | wc -l)"
+  if [ "$sgid_cnt" -gt 0 ]; then
+    if find "$WORK6" -type d -perm -2000 -exec chmod g-s {} + 2>/dev/null; then
+      pass "setgid: zdjęto z $sgid_cnt katalogów"
+    else
+      warns "setgid na $sgid_cnt katalogach (naprawa nieudana — find '$WORK6' -type d -perm -2000 -exec chmod g-s {} +)"
+    fi
+  fi
 fi
 
 # --- 3. kod środowiska vs klon repo --------------------------------------------
