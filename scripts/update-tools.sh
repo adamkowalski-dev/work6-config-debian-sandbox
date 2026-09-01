@@ -125,7 +125,9 @@ for mod in "${MODULE_LIST[@]}"; do
     [ -n "$note" ] && info "[$mod] $note"
   fi
 
-  semver_cmp "$cur" "$rem"; cmp_rc=$?
+  # semver_cmp sygnalizuje wynik KODEM wyjścia (1/2/3) — goła komenda
+  # ubiłaby skrypt przez set -e dokładnie wtedy, gdy jest aktualizacja.
+  semver_cmp "$cur" "$rem" && cmp_rc=0 || cmp_rc=$?
   case "$cmp_rc" in
     0)  # ta sama wersja
         if [ "$FORCE" -eq 1 ]; then
