@@ -4,8 +4,9 @@
 #
 #   doctor.sh [--quick]
 #
-# Sprawdza: użytkownika, uprawnienia, komponenty, sandbox (w tym testy
-# szczelności wewnątrz bwrap), miejsce na dysku. Kod wyjścia:
+# Sprawdza: użytkownika, uprawnienia, zgodność kodu work6 z klonem repo,
+# komponenty, sandbox (w tym testy szczelności wewnątrz bwrap), miejsce
+# na dysku. Kod wyjścia:
 #   0 = OK (ew. ostrzeżenia), 1 = problemy krytyczne.
 # --quick pomija wolne testy (wersje Fluttera itp.).
 # ============================================================================
@@ -63,7 +64,24 @@ if [ -d "$WORK6" ]; then
   done
 fi
 
-# --- 3. komponenty -------------------------------------------------------------
+# --- 3. kod środowiska vs klon repo --------------------------------------------
+# work6 uruchamia kod ze swojej kopii, nie z repo. `git pull` bez
+# setup-work6.sh zostawia stare skrypty i wszystko leci nimi dalej —
+# bez tej sekcji nie ma NICZEGO, co by o tym powiedziało (bramka
+# w update-tools.sh nie zadziała, gdy to właśnie ten plik jest stary).
+sync_rc=0
+work6_repo_sync_status || sync_rc=$?
+case "$sync_rc" in
+  0) sync_repo="$(work6_repo_dir 2>/dev/null || true)"
+     [ -n "$sync_repo" ] \
+       && pass "kod work6 zgodny z klonem repo ($sync_repo)" \
+       || pass "work6 jest samym drzewem repo — jedna kopia, dryf niemożliwy" ;;
+  1) warns "kod w $WORK6 jest starszy/inny niż w repo — pliki wypisane wyżej"
+     warn  "synchronizacja:  $(work6_repo_dir 2>/dev/null || echo "$HOME/work6-config")/setup-work6.sh --yes" ;;
+  *) warns "nie ustaliłem, czy work6 ma aktualny kod (powód wyżej)" ;;
+esac
+
+# --- 4. komponenty -------------------------------------------------------------
 if is_yes "$INSTALL_NODE"; then
   if [ -x "$WORK6/node/current/bin/node" ]; then
     pass "node: $("$WORK6/node/current/bin/node" --version)"
@@ -160,7 +178,7 @@ if is_yes "$INSTALL_VSCODE"; then
   fi
 fi
 
-# --- 4. sandbox ----------------------------------------------------------------
+# --- 5. sandbox ----------------------------------------------------------------
 if ! have_cmd bwrap; then
   crit "brak bwrap — administrator: prepare-system.sh (pakiet bubblewrap)"
 else
@@ -213,7 +231,7 @@ is_yes "${SANDBOX_ALLOW_DISPLAY:-no}" \
 [ -n "${SANDBOX_EXTRA_RO_BINDS:-}" ] \
   && warns "SANDBOX_EXTRA_RO_BINDS niepuste: ${SANDBOX_EXTRA_RO_BINDS}"
 
-# --- 5. dysk ---------------------------------------------------------------------
+# --- 6. dysk ---------------------------------------------------------------------
 avail_mb="$(df -Pk "$WORK6" | awk 'NR==2{print int($4/1024)}')"
 if [ "$avail_mb" -lt 1024 ]; then
   crit "wolne miejsce: ${avail_mb} MB (<1 GB!)"

@@ -257,6 +257,72 @@ require_owned_dir() {
   [ "$(stat -c %u -- "$d")" = "$(id -u)" ] || die "$d nie należy do $(id -un) — odmowa"
 }
 
+# --- dryf kodu: klon repo vs zainstalowane work6 -------------------------------
+# work6 uruchamia kod ze SWOJEJ kopii ($WORK6/{bin,scripts,lib,setup.d}),
+# zsynchronizowanej z klonu repo przez setup-work6.sh. Po `git pull` bez
+# ponownego setupu obie kopie się rozjeżdżają i wszystko leci starym
+# kodem — to jest cichy powód dla „poprawka jest w repo, a nic się nie
+# zmienia".
+
+# work6_repo_dir — wypisuje ścieżkę klonu repo (źródła synchronizacji).
+# Kolejność: jawny $WORK6_CONFIG_REPO > $ROOT_DIR, jeśli sam jest klonem
+# (skrypt odpalony z repo, nie z work6) > $HOME/work6-config.
+# Kod wyjścia 1, gdy żaden kandydat nie wygląda na klon repo.
+work6_repo_dir() {
+  local c
+  for c in "${WORK6_CONFIG_REPO:-}" "${ROOT_DIR:-}" "$HOME/work6-config"; do
+    [ -n "$c" ] && [ -d "$c" ] || continue
+    [ -f "$c/setup-work6.sh" ] && [ -d "$c/setup.d" ] || continue
+    # $WORK6 nie jest własnym źródłem (praca bezpośrednio w drzewie repo)
+    [ "$(readlink -f "$c")" = "$(readlink -f "$WORK6")" ] && continue
+    readlink -f "$c"
+    return 0
+  done
+  return 1
+}
+
+# work6_repo_sync_status — czy $WORK6 ma ten sam kod co klon repo.
+# Rozbieżne pliki wypisuje sam (info); werdykt i jego wagę ustala
+# wywołujący. Kod wyjścia:
+#   0 = zgodne, 1 = dryf, 2 = NIE DA SIĘ ustalić (powód na ekranie).
+# Kod 2 nigdy nie udaje 0: „nie sprawdziłem" to inna informacja niż
+# „sprawdziłem i jest dobrze" — ciche przepuszczanie było dokładnie tym
+# błędem, który ta funkcja ma wykrywać u innych.
+work6_repo_sync_status() {
+  local repo d f base drift=0
+  if [ -n "${WORK6_CONFIG_REPO:-}" ] \
+     && { [ ! -d "$WORK6_CONFIG_REPO" ] || [ ! -f "$WORK6_CONFIG_REPO/setup-work6.sh" ]; }; then
+    warn "WORK6_CONFIG_REPO='$WORK6_CONFIG_REPO' nie wygląda na klon work6-config"
+    return 2
+  fi
+  # $WORK6 bywa samym drzewem repo (praca w klonie, .work6-root w nim) —
+  # wtedy nie ma dwóch kopii i nie ma czemu się rozjechać.
+  if [ -f "$WORK6/setup-work6.sh" ] && [ -d "$WORK6/setup.d" ]; then
+    return 0
+  fi
+  if ! repo="$(work6_repo_dir)"; then
+    warn "nie znalazłem klonu repo work6-config (sprawdzałem: \$WORK6_CONFIG_REPO,"
+    warn "  \$ROOT_DIR, $HOME/work6-config) — nie wiem, czy $WORK6 ma aktualny kod"
+    warn "wskaż klon jawnie:  WORK6_CONFIG_REPO=/ścieżka/do/work6-config $0 ..."
+    return 2
+  fi
+  for d in setup.d lib bin scripts; do
+    [ -d "$repo/$d" ] || continue
+    for f in "$repo/$d"/*; do
+      [ -f "$f" ] || continue
+      base="$(basename "$f")"
+      if [ ! -f "$WORK6/$d/$base" ]; then
+        info "  dryf: $d/$base — jest w repo, brak w work6"
+        drift=1
+      elif ! cmp -s "$f" "$WORK6/$d/$base"; then
+        info "  dryf: $d/$base — inna treść niż w repo"
+        drift=1
+      fi
+    done
+  done
+  [ "$drift" -eq 0 ]
+}
+
 # --- inicjalizacja -----------------------------------------------------------
 # load_config: wczytuje install.env + sandbox.env i ustala WORK6.
 # Kolejność: zainstalowany config w work6 > szablon z ROOT_DIR.
