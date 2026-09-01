@@ -220,6 +220,41 @@ widocznym też jako `/workspace`).
 
 ## 10. Aktualizacje
 
+Aktualizacje są **dwie i to nie to samo**: samo work6 (skrypty, moduły
+`setup.d`) i narzędzia, które work6 instaluje (Claude, agy, Node…).
+Kolejność ma znaczenie — narzędzia aktualizuje kod work6, więc stary
+kod aktualizuje po staremu.
+
+### 10.1. Aktualizacja samego work6 (najpierw)
+
+`~/work6` to **kopia robocza**, a nie klon repo: skrypty i moduły są do
+niej kopiowane przez `setup-work6.sh`. Sam `git pull` w
+`~/work6-config` niczego w `~/work6` nie zmienia.
+
+```bash
+sudo -iu ai-agent
+cd ~/work6-config && git pull
+./setup-work6.sh --yes      # to on kopiuje bin/scripts/lib/setup.d do ~/work6
+```
+
+`--yes` nie przeinstalowuje komponentów — zainstalowane zostawia
+nietknięte, synchronizuje pliki środowiska. Objaw pominięcia tego
+kroku: nowa flaga opisana w README nie działa na maszynie
+(`nieznany komponent/argument: --check`), bo README jest z repo,
+a skrypt z `~/work6`.
+
+Dryf raportuje `doctor.sh` (sekcja 3 jego wyjścia) i `update-tools.sh`,
+który przy rozjeździe **przerywa**, zamiast aktualizować starym kodem.
+Jeśli podejrzewasz, że stary jest sam `update-tools.sh`, uruchom
+diagnostykę **z klonu repo** — to jedyna kopia, o której na pewno wiesz,
+że jest świeża:
+
+```bash
+~/work6-config/scripts/doctor.sh --quick
+```
+
+### 10.2. Aktualizacja narzędzi
+
 **Z konta agenta, POZA sandboxem** — nie z `agent-shell`:
 
 ```bash
@@ -246,12 +281,17 @@ Zasady bezpieczeństwa aktualizacji:
 
 - **nie cofa wersji** — porównanie semver, nie tekstowe; downgrade
   wymaga jawnego `--force`,
-- **przerywa, gdy `work6/setup.d` jest inny niż repo** — inaczej
+- **przerywa, gdy kod w `work6` jest inny niż w repo** — inaczej
   aktualizacja poleciałaby kodem sprzed `git pull`; napraw przez
-  `~/work6-config/setup-work6.sh --yes` (to on synchronizuje pliki),
+  `~/work6-config/setup-work6.sh --yes` (sekcja 10.1). Gdy klonu repo
+  nie da się znaleźć, mówi to **wprost** i idzie dalej — „nie
+  sprawdziłem" nie jest raportowane jako „jest dobrze"; klon spoza
+  `~/work6-config` wskażesz przez `WORK6_CONFIG_REPO=/ścieżka`,
 - weryfikacja pobrań jest nienaruszalna: pin GPG i sumy zawsze,
   `--force` omija wyłącznie porównanie wersji,
-- pakiety systemowe: nigdy stąd — tylko `prepare-system.sh`.
+- pakiety systemowe: nigdy stąd — tylko `prepare-system.sh` (instalacja
+  jednorazowych zależności) i zwykłe `sudo apt update && sudo apt
+  upgrade` (odświeżenie całego Debiana, niezależnie od work6).
 
 **Znane ograniczenie porównania wersji.** `semver_cmp` obcina sufiksy
 przedwydaniowe, więc `2.0.0-rc1` i `2.0.0` uznaje za **równe**. Na
@@ -323,10 +363,11 @@ zapisywalny `/workspace`), wolne miejsce, ostrzeżenia o poszerzeniach
 | Chromium w sandboxie: błąd wewnętrznego sandboxa | zagnieżdżone userns zablokowane → w projekcie Playwrighta `launchOptions: { chromiumSandbox: false }` (zewnętrzną izolację daje bwrap) |
 | `claude` prosi o login mimo logowania | logowałeś się poza sandboxem (inne HOME) → zawsze przez `run-claude` |
 | agy ma inną wersję niż w `versions.env` | wbudowany self-update → `update-tools.sh agy` odświeży zapis |
+| `nieznany komponent/argument: --check` (albo inna flaga z README) | skrypt w `~/work6` jest starszy niż README z repo → `cd ~/work6-config && git pull && ./setup-work6.sh --yes` (sekcja 10.1) |
 | `update-tools.sh: nie ma takiego pliku` | uruchamiasz **wewnątrz sandboxa** — `scripts/` jest stamtąd niewidoczny → wyjdź z `agent-shell` i uruchom z konta `ai-agent` |
 | „nie widzi nowej wersji" Claude | jesteś na kanale `stable`, a patrzysz na `latest` → `update-tools.sh --check` pokaże oba; kanał zmienisz w `config/install.env` |
 | `nie mogę ustalić dostępnej wersji — pomijam` | dawniej maskowało błąd; teraz `--check` podaje powód (sieć, format odpowiedzi, brak `jq`) |
-| poprawka jest w repo, ale nic się nie zmienia | `work6/setup.d` to kopia — dopiero `setup-work6.sh --yes` ją synchronizuje; `update-tools.sh` wykrywa rozjazd i przerywa |
+| poprawka jest w repo, ale nic się nie zmienia | `~/work6` to kopia — dopiero `setup-work6.sh --yes` ją synchronizuje; dryf pokazuje `doctor.sh` (sekcja 3), a `update-tools.sh` przy nim przerywa |
 | `lokalna wersja jest nowsza niż dostępna` | to zabezpieczenie przed cofnięciem wersji (np. po self-update agy) → świadomy downgrade: `--force` |
 | `może zabraknąć miejsca` | Flutter/przeglądarki są duże → zwolnij miejsce albo odchudź wybór w `--reconfigure` |
 

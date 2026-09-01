@@ -60,21 +60,22 @@ work6_export_env "$WORK6"
 # setup-work6.sh), a NIE z repo. Po `git pull` w repo aktualizacja
 # leciałaby więc starym kodem — i to jest cichy powód, dla którego
 # „poprawka jest w repo, a nic się nie zmienia".
+#
+# Samo porównanie siedzi w lib/common.sh, bo tę samą odpowiedź musi umieć
+# dać doctor.sh: gdy TEN plik jest przestarzały, bramka poniżej w ogóle
+# nie istnieje i nie ma czego uruchomić (pułapka bootstrapu — dlatego
+# doctor.sh z klonu repo jest wyjściem awaryjnym, patrz README sekcja 10).
 check_repo_sync() {
-  local repo="${WORK6_CONFIG_REPO:-$HOME/work6-config}" d f base stale=0
-  [ -d "$repo" ] || return 0
-  [ "$(readlink -f "$repo")" = "$(readlink -f "$WORK6")" ] && return 0
-  for d in setup.d lib bin scripts; do
-    [ -d "$repo/$d" ] || continue
-    for f in "$repo/$d"/*; do
-      [ -f "$f" ] || continue
-      base="$(basename "$f")"
-      [ -f "$WORK6/$d/$base" ] || { stale=1; break 2; }
-      cmp -s "$f" "$WORK6/$d/$base" || { stale=1; break 2; }
-    done
-  done
-  [ "$stale" -eq 0 ] && return 0
-  error "kod w $WORK6 jest inny niż w repo ($repo)"
+  local repo rc=0
+  work6_repo_sync_status || rc=$?
+  case "$rc" in
+    0) return 0 ;;
+    2) warn "nie potwierdziłem, czy $WORK6 ma kod z repo (powód wyżej) — jadę dalej"
+       warn "jeśli aktualizacja nic nie zmieni, to jest pierwszy podejrzany"
+       return 0 ;;
+  esac
+  repo="$(work6_repo_dir || echo "$HOME/work6-config")"
+  error "kod w $WORK6 jest inny niż w repo ($repo) — pliki wypisane wyżej"
   error "aktualizacja poleciałaby STARYMI modułami — przerywam."
   error "zsynchronizuj najpierw:  $repo/setup-work6.sh --yes"
   exit 1
