@@ -91,7 +91,7 @@ done
 [[ "$AGENT_USER" =~ ^[a-z_][a-z0-9_-]*$ ]] \
   || die "niepoprawna nazwa użytkownika: $AGENT_USER"
 
-[[ "$BRANCH" =~ ^[a-zA-Z0-9._/-]+$ ]] \
+[[ "$BRANCH" =~ ^[a-zA-Z0-9][a-zA-Z0-9._/-]*$ ]] \
   || die "niepoprawna nazwa brancha: $BRANCH"
 
 # --- wymagania systemowe -----------------------------------------------------

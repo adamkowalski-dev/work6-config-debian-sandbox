@@ -23,7 +23,10 @@
 # Katalogi work6 widoczne w sandboxie DO ZAPISU. backups/ i downloads/
 # celowo poza listą (agent nie może manipulować kopiami zapasowymi),
 # logs/ poza listą (integralność logów launcherów).
-SANDBOX_RW_DIRS=(home projects tools tmp cache config state runtime
+# config/ i tools/ NIE są tu — montowane osobno TYLKO DO ODCZYTU
+# (patrz sandbox_build_args): config/ steruje uprawnieniami następnej
+# sesji, tools/ to binarki CLI, którym ufa operator.
+SANDBOX_RW_DIRS=(home projects tmp cache state runtime
   browsers npm-global node python)
 
 # --- atrapy /etc/passwd i /etc/group -----------------------------------------
@@ -59,7 +62,7 @@ _sandbox_machine_id_file() {
 # Wynik w globalnej tablicy SANDBOX_ARGS.
 sandbox_build_args() {
   local net_mode="$1" workspace="$2"
-  local uid gid d f real
+  local uid gid d f real p
   uid="$(id -u)"; gid="$(id -g)"
 
   need_cmd bwrap "apt install bubblewrap (przez prepare-system.sh)"
@@ -127,8 +130,20 @@ sandbox_build_args() {
   # Zapisywalne katalogi work6 (tylko istniejące — komponenty bywają
   # wyłączone). Ścieżki wewnątrz = te same co na hoście.
   for d in "${SANDBOX_RW_DIRS[@]}"; do
-    [ -d "$WORK6/$d" ] && SANDBOX_ARGS+=( --bind "$WORK6/$d" "$WORK6/$d" )
+    p="$WORK6/$d"
+    [ -e "$p" ] || continue
+    [ -L "$p" ] && die "$p jest dowiązaniem symbolicznym — odmawiam montowania"
+    [ -d "$p" ] && SANDBOX_ARGS+=( --bind "$p" "$p" )
   done
+  # config/ tylko RO: install.env i sandbox.env decydują o UPRAWNIENIACH
+  # kolejnej sesji (load_config czyta je na hoście, przed bwrap) — agent
+  # nie może ich modyfikować. tools/ tylko RO: agent nie może podmienić
+  # binarek claude/agy (DISABLE_AUTOUPDATER=1 to ta sama decyzja).
+  # Wyjątek: Flutter SDK dopisuje do własnego drzewa (bin/cache) — RW.
+  [ -d "$WORK6/config" ] && SANDBOX_ARGS+=( --ro-bind "$WORK6/config" "$WORK6/config" )
+  [ -d "$WORK6/tools" ] && SANDBOX_ARGS+=( --ro-bind "$WORK6/tools" "$WORK6/tools" )
+  [ -d "$WORK6/tools/flutter" ] \
+    && SANDBOX_ARGS+=( --bind "$WORK6/tools/flutter" "$WORK6/tools/flutter" )
 
   # Projekt widoczny też jako /workspace; start w nim.
   SANDBOX_ARGS+=( --bind "$workspace" /workspace --chdir /workspace )
@@ -178,18 +193,22 @@ sandbox_build_args() {
   # --- dodatki z sandbox.env (świadome poszerzenia) ---
   if [ -n "${SANDBOX_EXTRA_RO_BINDS:-}" ]; then
     local IFS=':'
+    set -f
     for d in $SANDBOX_EXTRA_RO_BINDS; do
       [ -e "$d" ] || { warn "SANDBOX_EXTRA_RO_BINDS: brak $d — pomijam"; continue; }
       warn "dodatkowy ro-bind z konfiguracji: $d"
       SANDBOX_ARGS+=( --ro-bind "$d" "$d" )
     done
+    set +f
   fi
   if [ -n "${SANDBOX_EXTRA_ENV:-}" ]; then
+    set -f
     for line in $SANDBOX_EXTRA_ENV; do
       case "$line" in
         *=*) SANDBOX_ARGS+=( --setenv "${line%%=*}" "${line#*=}" ) ;;
       esac
     done
+    set +f
   fi
 }
 

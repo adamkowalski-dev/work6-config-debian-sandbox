@@ -60,7 +60,7 @@ exec env -i \
   PATH=/usr/bin:/bin \
   LANG=C.UTF-8 LC_ALL=C.UTF-8 \
   TMPDIR="$WORK6/tmp" \
-  XDG_CONFIG_HOME="$WORK6/config" XDG_CACHE_HOME="$WORK6/cache" \
+  XDG_CONFIG_HOME="$WORK6/home/.config" XDG_CACHE_HOME="$WORK6/cache" \
   XDG_DATA_HOME="$WORK6/home/.local/share" XDG_STATE_HOME="$WORK6/state" \
   ${XDG_RUNTIME_DIR:+XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR"} \
   ${DISPLAY:+DISPLAY="$DISPLAY"} \

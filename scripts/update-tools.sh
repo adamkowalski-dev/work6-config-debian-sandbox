@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# work6 — update-tools.sh — ręczna aktualizacja komponentów
+# work6 - update-tools.sh - ręczna aktualizacja komponentów
 #
 #   update-tools.sh [node|python|claude|agy|playwright|flutter|vscode ...]
 #   update-tools.sh all            # wszystkie włączone
@@ -10,7 +10,7 @@
 # URUCHAMIAĆ NA KONCIE AGENTA, POZA SANDBOXEM:
 #   sudo -iu ai-agent
 #   ~/work6/scripts/update-tools.sh --check
-# To NIE jest skrypt do uruchamiania wewnątrz agent-shell — katalog
+# To NIE jest skrypt do uruchamiania wewnątrz agent-shell - katalog
 # scripts/ jest celowo niewidoczny z sandboxa (agent nie ma podmieniać
 # tego, co instaluje jego własne narzędzia).
 #
@@ -22,7 +22,7 @@
 #   * po aktualizacji uruchamia szybkie doctor.sh,
 #   * NIGDY nie dotyka pakietów systemowych,
 #   * NIGDY nie cofa wersji bez --force (porównanie semver, nie string),
-#   * przerywa, gdy setup.d w work6 jest starszy niż repo — inaczej
+#   * przerywa, gdy setup.d w work6 jest starszy niż repo - inaczej
 #     aktualizacja leciałaby kodem sprzed `git pull`.
 # ============================================================================
 set -Eeuo pipefail
@@ -58,25 +58,25 @@ work6_export_env "$WORK6"
 # --- czy work6 ma aktualny kod z repo? -----------------------------------------
 # Moduły ładujemy z $WORK6/setup.d (kopia zsynchronizowana przez
 # setup-work6.sh), a NIE z repo. Po `git pull` w repo aktualizacja
-# leciałaby więc starym kodem — i to jest cichy powód, dla którego
+# leciałaby więc starym kodem - i to jest cichy powód, dla którego
 # „poprawka jest w repo, a nic się nie zmienia".
 #
 # Samo porównanie siedzi w lib/common.sh, bo tę samą odpowiedź musi umieć
 # dać doctor.sh: gdy TEN plik jest przestarzały, bramka poniżej w ogóle
-# nie istnieje i nie ma czego uruchomić (pułapka bootstrapu — dlatego
+# nie istnieje i nie ma czego uruchomić (pułapka bootstrapu - dlatego
 # doctor.sh z klonu repo jest wyjściem awaryjnym, patrz README sekcja 10).
 check_repo_sync() {
   local repo rc=0
   work6_repo_sync_status || rc=$?
   case "$rc" in
     0) return 0 ;;
-    2) warn "nie potwierdziłem, czy $WORK6 ma kod z repo (powód wyżej) — jadę dalej"
+    2) warn "nie potwierdziłem, czy $WORK6 ma kod z repo (powód wyżej) - jadę dalej"
        warn "jeśli aktualizacja nic nie zmieni, to jest pierwszy podejrzany"
        return 0 ;;
   esac
   repo="$(work6_repo_dir || echo "$HOME/work6-config")"
-  error "kod w $WORK6 jest inny niż w repo ($repo) — pliki wypisane wyżej"
-  error "aktualizacja poleciałaby STARYMI modułami — przerywam."
+  error "kod w $WORK6 jest inny niż w repo ($repo) - pliki wypisane wyżej"
+  error "aktualizacja poleciałaby STARYMI modułami - przerywam."
   error "zsynchronizuj najpierw:  $repo/setup-work6.sh --yes"
   exit 1
 }
@@ -102,7 +102,7 @@ declare -a PLAN=()
 for mod in "${MODULE_LIST[@]}"; do
   wanted "$mod" || continue
   if ! "${mod}_enabled"; then
-    info "[$mod] wyłączony w install.env — pomijam"
+    info "[$mod] wyłączony w install.env - pomijam"
     continue
   fi
 
@@ -115,7 +115,7 @@ for mod in "${MODULE_LIST[@]}"; do
 
   # Błędy remote_version idą na ekran (moduły nie wołają już die).
   if ! rem="$("${mod}_remote_version")"; then
-    warn "[$mod] nie mogę ustalić dostępnej wersji (powód wyżej) — pomijam"
+    warn "[$mod] nie mogę ustalić dostępnej wersji (powód wyżej) - pomijam"
     continue
   fi
 
@@ -146,7 +146,7 @@ for mod in "${MODULE_LIST[@]}"; do
           info  "[$mod] nie cofam wersji; jeśli świadomie chcesz: --force"
         fi
         ;;
-    *)  # nieporównywalne — nie zgadujemy kierunku
+    *)  # nieporównywalne - nie zgadujemy kierunku
         if [ "$cur" = "$rem" ]; then
           ok "[$mod] aktualny ($cur)"
         else
@@ -186,9 +186,9 @@ echo
 confirm "Wykonać powyższe aktualizacje?" nie || die "przerwano na Twoje żądanie"
 
 # --- backup przed zmianami ------------------------------------------------------
-info "backup konfiguracji przed aktualizacją..."
+info "backup konfiguracji (env/npmrc/settings - NIE binarek narzędzi) przed aktualizacją..."
 ASSUME_YES=1 "$WORK6/scripts/backup-config.sh" --auto \
-  || die "backup nie powiódł się — przerywam aktualizację"
+  || die "backup nie powiódł się - przerywam aktualizację"
 
 # --- aktualizacje -----------------------------------------------------------------
 FAILED=0
@@ -206,7 +206,7 @@ done
 
 echo
 info "diagnostyka po aktualizacji:"
-"$WORK6/scripts/doctor.sh" --quick || warn "doctor zgłosił problemy — przejrzyj wyżej"
+"$WORK6/scripts/doctor.sh" --quick || warn "doctor zgłosił problemy - przejrzyj wyżej"
 
 [ "$FAILED" -eq 0 ] || die "niepowodzenia: $FAILED (szczegóły wyżej; backup w $WORK6/backups)"
 ok "aktualizacja zakończona"

@@ -42,13 +42,36 @@ if [ "$(_mode_rank "$req_mode")" -gt "$(_mode_rank "$max_mode")" ]; then
   req_mode="$max_mode"
 fi
 
-# Nie dokładamy flag trybu, jeśli użytkownik podał własne.
+# Nie dokładamy flag trybu, jeśli użytkownik podał własne — ale flagi
+# PODNOSZĄCE uprawnienia ponad CLAUDE_MAX_MODE odrzucamy: bez tego cap
+# byłby dekoracją, którą omija surowa flaga CLI.
+_flag_requires() { # _flag_requires WYMAGANY_TRYB OPIS_FLAGI
+  [ "$(_mode_rank "$1")" -le "$(_mode_rank "$max_mode")" ] \
+    || die "$2 przekracza CLAUDE_MAX_MODE=$max_mode — odmowa"
+}
+_check_perm_value() { # wartości --permission-mode znane jako podnoszące
+  case "$1" in
+    acceptEdits|auto|dontAsk) _flag_requires acceptEdits "--permission-mode $1" ;;
+    bypassPermissions)        _flag_requires bypass "--permission-mode $1" ;;
+  esac
+}
 mode_flags=()
 user_has_mode=0
+expect_mode_value=0
 for a in "${LAUNCH_ARGS[@]}"; do
+  if [ "$expect_mode_value" -eq 1 ]; then
+    expect_mode_value=0
+    _check_perm_value "$a"
+    continue
+  fi
   case "$a" in
-    --permission-mode|--permission-mode=*|--dangerously-skip-permissions|--allow-dangerously-skip-permissions)
+    --dangerously-skip-permissions|--allow-dangerously-skip-permissions)
+      _flag_requires bypass "$a"
       user_has_mode=1 ;;
+    --permission-mode)
+      user_has_mode=1; expect_mode_value=1 ;;
+    --permission-mode=*)
+      user_has_mode=1; _check_perm_value "${a#--permission-mode=}" ;;
   esac
 done
 if [ "$user_has_mode" -eq 0 ]; then
