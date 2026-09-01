@@ -100,7 +100,16 @@ case "$sync_rc" in
   0) sync_repo="$(work6_repo_dir 2>/dev/null || true)"
      [ -n "$sync_repo" ] \
        && pass "kod work6 zgodny z klonem repo ($sync_repo)" \
-       || pass "work6 jest samym drzewem repo — jedna kopia, dryf niemożliwy" ;;
+       || pass "work6 jest samym drzewem repo — jedna kopia, dryf niemożliwy"
+     w6ver="$(cat "$WORK6/VERSION" 2>/dev/null || true)"
+     repover="$(cat "$sync_repo/VERSION" 2>/dev/null || true)"
+     if [ -n "$w6ver" ]; then
+       if [ -z "$repover" ] || [ "$w6ver" = "$repover" ]; then
+         pass "wersja work6-config: $w6ver"
+       else
+         warns "wersja work6: $w6ver, repo: $repover — uruchom setup-work6.sh --yes"
+       fi
+     fi ;;
   1) warns "kod w $WORK6 jest starszy/inny niż w repo — pliki wypisane wyżej"
      warn  "synchronizacja:  $(work6_repo_dir 2>/dev/null || echo "$HOME/work6-config")/setup-work6.sh --yes" ;;
   *) warns "nie ustaliłem, czy work6 ma aktualny kod (powód wyżej)" ;;
