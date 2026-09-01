@@ -151,6 +151,25 @@ stage1() {
     ok "Chromium już jest"
   fi
 
+  # Narzędzia CLI, po które agenty AI sięgają przy pracy z kodem. Opcjonalne:
+  # bez nich wszystko działa (grep/find), z nimi agent pracuje szybciej.
+  # W sandboxie /usr jest RO, więc zainstalować je może wyłącznie admin tutaj.
+  local agent_tools=(ripgrep fd-find)
+  missing=()
+  for p in "${agent_tools[@]}"; do
+    dpkg -s "$p" >/dev/null 2>&1 || missing+=("$p")
+  done
+  if [ "${#missing[@]}" -gt 0 ]; then
+    if confirm "Zainstalować narzędzia CLI dla agenta (${missing[*]})? (rg / fdfind — szybkie szukanie w kodzie)" tak; then
+      apt-get install -y --no-install-recommends "${missing[@]}"
+      ok "narzędzia CLI agenta zainstalowane (uwaga: binarka fd-find to 'fdfind')"
+    else
+      info "pominięto — agent poradzi sobie przez grep/find"
+    fi
+  else
+    ok "narzędzia CLI agenta (ripgrep, fd-find) już są"
+  fi
+
   # --- 3. użytkownik agenta ---
   echo
   if getent passwd "$AGENT_USER" >/dev/null; then
