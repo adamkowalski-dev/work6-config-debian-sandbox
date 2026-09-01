@@ -343,8 +343,24 @@ i wersje, npm prefix/cache w `work6`, start sandboxa (z siecią i bez)
 oraz **test szczelności wewnątrz bwrap** (brak `SSH_AUTH_SOCK`/D-Bus/
 docker.sock, niewidoczność cudzych `/home` i `/run/user`, poprawne
 `HOME`/`TMPDIR`/`PLAYWRIGHT_BROWSERS_PATH`, `/usr` tylko-RO,
-zapisywalny `/workspace`), wolne miejsce, ostrzeżenia o poszerzeniach
-(`SANDBOX_ALLOW_DISPLAY`, `SANDBOX_EXTRA_RO_BINDS`).
+zapisywalny `/workspace`, **`config/` i `tools/` tylko-RO** — w tym
+niezapisywalne binarki `claude`/`agy`), wolne miejsce, ostrzeżenia
+o poszerzeniach (`SANDBOX_ALLOW_DISPLAY`, `SANDBOX_EXTRA_RO_BINDS`).
+
+**Kontrola okresowa (z konta administratora).** `doctor.sh` to także
+audyt uprawnień i szczelności sandboxa — działa wyłącznie na koncie
+`ai-agent`, więc z konta admina uruchamia się go tak:
+
+```bash
+sudo -iu ai-agent ~ai-agent/work6/scripts/doctor.sh --quick
+```
+
+Kod wyjścia 1 = problemy krytyczne, więc nadaje się do automatu.
+**Cyklicznego uruchamiania na razie celowo nie ma** (decyzja
+2026-09-01) — gdy dojrzeje potrzeba, preferowana droga to timer
+systemd użytkownika `ai-agent` (`--quick`, wynik do `logs/`), bez
+wciągania roota; alternatywa: skrócony test szczelności przy starcie
+launcherów.
 
 ## 13. Kolejny agent (inne narzędzie CLI)
 
