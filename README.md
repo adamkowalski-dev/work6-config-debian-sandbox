@@ -233,6 +233,11 @@ kod aktualizuje po staremu.
 
 ### 10.1. Aktualizacja samego work6 (najpierw)
 
+Repo jest wersjonowane (SemVer): plik `VERSION`, historia zmian w
+`CHANGELOG.md`, wydania jako tagi `vX.Y.Z` na commitach merge.
+`doctor.sh` pokazuje wersję działającej kopii i ostrzega, gdy różni
+się od repo. Każdy PR dopisuje wpis do sekcji `[Unreleased]`.
+
 `~/work6` to **kopia robocza**, a nie klon repo: skrypty i moduły są do
 niej kopiowane przez `setup-work6.sh`. Sam `git pull` w
 `~/work6-config` niczego w `~/work6` nie zmienia.

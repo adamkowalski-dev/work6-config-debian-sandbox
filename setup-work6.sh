@@ -262,6 +262,9 @@ sync_files() {
       *)           rsync -a --delete --chmod=D0700,F0600 -- "$ROOT_DIR/$d/" "$WORK6/$d/" ;;
     esac
   done
+  # Wersja projektu jedzie razem z kodem — doctor porównuje ją z repo.
+  [ -f "$ROOT_DIR/VERSION" ] \
+    && install -m 0600 -- "$ROOT_DIR/VERSION" "$WORK6/VERSION"
   if [ ! -f "$WORK6/config/sandbox.env" ] \
      && [ -f "$ROOT_DIR/config/sandbox.env" ]; then
     install -m 0600 -- "$ROOT_DIR/config/sandbox.env" "$WORK6/config/sandbox.env"
