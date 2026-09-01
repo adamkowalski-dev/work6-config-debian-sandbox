@@ -8,6 +8,13 @@ dostaje numer i datę, a commit merge - tag `vX.Y.Z`.
 
 ## [Unreleased]
 
+### Naprawione
+
+- `update-tools.sh` odświeża zapis wersji w `versions.env`, gdy binarka
+  zgadza się ze źródłem, a ewidencja nie (np. ślad po self-update agy
+  sprzed blokady RO) - wcześniej podpowiedź z doctora nie działała bez
+  `--force`.
+
 ## [1.0.0] - 2026-09-02
 
 Pierwsza wersjonowana odsłona - stan po audycie bezpieczeństwa

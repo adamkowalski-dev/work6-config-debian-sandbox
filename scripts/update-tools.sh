@@ -134,6 +134,17 @@ for mod in "${MODULE_LIST[@]}"; do
           PLAN+=("$mod|$cur|$rem|przeinstalowanie (--force)")
         else
           ok "[$mod] aktualny ($cur)"
+          # Binarka zgodna ze źródłem, ale ewidencja może być nieświeża
+          # (np. self-update agy sprzed blokady RO) — odświeżamy zapis,
+          # żeby doctor przestał zgłaszać dryf.
+          if declare -F "${mod}_recorded_version" >/dev/null; then
+            rec="$("${mod}_recorded_version" 2>/dev/null || true)"
+            if [ -n "$rec" ] && [ "$rec" != "$cur" ]; then
+              key="$(printf '%s' "$mod" | tr '[:lower:]-' '[:upper:]_')"
+              record_kv "$VERSIONS_FILE" "${key}_VERSION" "$cur"
+              ok "[$mod] odświeżono zapis wersji ($rec -> $cur)"
+            fi
+          fi
         fi
         ;;
     2)  # lokalnie starsza → normalna aktualizacja
