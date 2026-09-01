@@ -126,7 +126,7 @@ agy_install() {
   fi
 
   record_component agy "$ver" "$url" "$sha512" "$action"
-  warn "pamiętaj: agy aktualizuje się sam w tle — wersja może odjechać od manifestu (raportuje doctor.sh)"
+  warn "agy próbuje self-update w tle, ale tools/ w sandboxie jest RO — aktualizacje wyłącznie przez update-tools.sh"
 
   for old in "$WORK6/tools/agy/versions"/*; do
     [ -d "$old" ] || continue

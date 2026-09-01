@@ -17,7 +17,7 @@
 work6_env_pairs() {
   local w6="$1"
   printf '%s\n' \
-    "XDG_CONFIG_HOME=$w6/config" \
+    "XDG_CONFIG_HOME=$w6/home/.config" \
     "XDG_CACHE_HOME=$w6/cache" \
     "XDG_DATA_HOME=$w6/home/.local/share" \
     "XDG_STATE_HOME=$w6/state" \

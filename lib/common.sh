@@ -137,7 +137,7 @@ download() {
   local url="$1" out="$2"
   need_cmd curl "apt install curl"
   info "pobieram: $url"
-  curl --fail --location --proto '=https' --tlsv1.2 \
+  curl --fail --location --proto '=https' --proto-redir '=https' --tlsv1.2 \
     --retry 3 --retry-delay 2 --connect-timeout 20 --max-time 3600 \
     --silent --show-error --output "$out" "$url"
 }
@@ -145,7 +145,7 @@ download() {
 # download_stdout URL  — jak wyżej, na stdout (krótkie odpowiedzi typu wersja)
 download_stdout() {
   local url="$1"
-  curl --fail --location --proto '=https' --tlsv1.2 \
+  curl --fail --location --proto '=https' --proto-redir '=https' --tlsv1.2 \
     --retry 3 --retry-delay 2 --connect-timeout 20 --max-time 300 \
     --silent --show-error "$url"
 }
@@ -289,7 +289,7 @@ work6_repo_dir() {
 # „sprawdziłem i jest dobrze" — ciche przepuszczanie było dokładnie tym
 # błędem, który ta funkcja ma wykrywać u innych.
 work6_repo_sync_status() {
-  local repo d f base drift=0
+  local repo d f rel drift=0
   if [ -n "${WORK6_CONFIG_REPO:-}" ] \
      && { [ ! -d "$WORK6_CONFIG_REPO" ] || [ ! -f "$WORK6_CONFIG_REPO/setup-work6.sh" ]; }; then
     warn "WORK6_CONFIG_REPO='$WORK6_CONFIG_REPO' nie wygląda na klon work6-config"
@@ -308,17 +308,18 @@ work6_repo_sync_status() {
   fi
   for d in setup.d lib bin scripts; do
     [ -d "$repo/$d" ] || continue
-    for f in "$repo/$d"/*; do
-      [ -f "$f" ] || continue
-      base="$(basename "$f")"
-      if [ ! -f "$WORK6/$d/$base" ]; then
-        info "  dryf: $d/$base — jest w repo, brak w work6"
+    # Rekurencyjnie: podkatalogi (np. scripts/ssh) też podlegają
+    # porównaniu — nierekurencyjny glob cicho je pomijał.
+    while IFS= read -r -d '' f; do
+      rel="${f#"$repo"/}"
+      if [ ! -f "$WORK6/$rel" ]; then
+        info "  dryf: $rel — jest w repo, brak w work6"
         drift=1
-      elif ! cmp -s "$f" "$WORK6/$d/$base"; then
-        info "  dryf: $d/$base — inna treść niż w repo"
+      elif ! cmp -s "$f" "$WORK6/$rel"; then
+        info "  dryf: $rel — inna treść niż w repo"
         drift=1
       fi
-    done
+    done < <(find "$repo/$d" -type f -print0 | sort -z)
   done
   [ "$drift" -eq 0 ]
 }
@@ -369,6 +370,7 @@ ensure_tree() {
   ensure_dir "$WORK6/cache/npm" 0700
   ensure_dir "$WORK6/cache/pip" 0700
   ensure_dir "$WORK6/cache/pub" 0700
+  ensure_dir "$WORK6/home/.config" 0700
   [ -f "$WORK6/.work6-root" ] || {
     printf 'created=%s\n' "$(timestamp)" >"$WORK6/.work6-root"
     chmod 0600 "$WORK6/.work6-root"

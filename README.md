@@ -34,7 +34,10 @@ izolacji między narzędziami nie ma: to jeden użytkownik.
 
 Backupy (`backups/`) i `downloads/`, `logs/`, `bin/`, `lib/`,
 `scripts/` są **niewidoczne z sandboxa** — agent nie zmanipuluje kopii
-zapasowych ani launcherów.
+zapasowych ani launcherów. `config/` i `tools/` są widoczne, ale
+**tylko do odczytu** (wyjątek: `tools/flutter` — SDK pisze do siebie):
+agent nie dopisze sobie uprawnień do `install.env`/`sandbox.env` na
+następną sesję ani nie podmieni binarek `claude`/`agy`.
 
 ## 2. Struktura katalogów
 
@@ -43,10 +46,10 @@ zapasowych ani launcherów.
 ├── bin/              # launchery (agent-shell, run-claude, ...)
 ├── home/             # HOME wewnątrz sandboxa (tokeny CLI: home/.claude itd.)
 ├── cache/            # npm, pip, pub
-├── config/           # install.env, sandbox.env, versions.env, npmrc
+├── config/           # install.env, sandbox.env, versions.env, npmrc (w sandboxie RO)
 ├── tmp/              # TMPDIR środowiska
 ├── logs/             # logi setup/update/doctor + metadane startów
-├── tools/            # claude/, agy/, flutter/, vscode/ (wersjonowane)
+├── tools/            # claude/, agy/, flutter/, vscode/ (wersjonowane; w sandboxie RO)
 ├── npm-global/       # npm prefix (playwright itd.)
 ├── node/             # lokalny Node LTS (node/current → wersja)
 ├── python/           # venv
@@ -309,8 +312,10 @@ jest świadomą decyzją, a nie zgadywanką.
 Node trzyma się polityki z kreatora (pin 24.x / follow-LTS — uwaga:
 w 10.2026 Active LTS zmienia się na 26). Claude ma wyłączony
 auto-updater (wymuszane też w istniejącym `settings.json`), więc
-aktualizujesz świadomie; **agy self-update'uje się sam w tle** —
-`--check` i `doctor.sh` raportują dryf względem manifestu.
+aktualizujesz świadomie. agy próbuje self-update'u w tle, ale
+w sandboxie `tools/` jest **RO**, więc podmiana binarki się nie uda —
+jedyna ścieżka aktualizacji obu narzędzi to `update-tools.sh` spoza
+sandboxa; `--check` i `doctor.sh` raportują dryf względem manifestu.
 
 ## 11. Backup i restore
 
@@ -338,8 +343,24 @@ i wersje, npm prefix/cache w `work6`, start sandboxa (z siecią i bez)
 oraz **test szczelności wewnątrz bwrap** (brak `SSH_AUTH_SOCK`/D-Bus/
 docker.sock, niewidoczność cudzych `/home` i `/run/user`, poprawne
 `HOME`/`TMPDIR`/`PLAYWRIGHT_BROWSERS_PATH`, `/usr` tylko-RO,
-zapisywalny `/workspace`), wolne miejsce, ostrzeżenia o poszerzeniach
-(`SANDBOX_ALLOW_DISPLAY`, `SANDBOX_EXTRA_RO_BINDS`).
+zapisywalny `/workspace`, **`config/` i `tools/` tylko-RO** — w tym
+niezapisywalne binarki `claude`/`agy`), wolne miejsce, ostrzeżenia
+o poszerzeniach (`SANDBOX_ALLOW_DISPLAY`, `SANDBOX_EXTRA_RO_BINDS`).
+
+**Kontrola okresowa (z konta administratora).** `doctor.sh` to także
+audyt uprawnień i szczelności sandboxa — działa wyłącznie na koncie
+`ai-agent`, więc z konta admina uruchamia się go tak:
+
+```bash
+sudo -iu ai-agent ~ai-agent/work6/scripts/doctor.sh --quick
+```
+
+Kod wyjścia 1 = problemy krytyczne, więc nadaje się do automatu.
+**Cyklicznego uruchamiania na razie celowo nie ma** (decyzja
+2026-09-01) — gdy dojrzeje potrzeba, preferowana droga to timer
+systemd użytkownika `ai-agent` (`--quick`, wynik do `logs/`), bez
+wciągania roota; alternatywa: skrócony test szczelności przy starcie
+launcherów.
 
 ## 13. Kolejny agent (inne narzędzie CLI)
 
@@ -362,7 +383,7 @@ zapisywalny `/workspace`), wolne miejsce, ostrzeżenia o poszerzeniach
 | Playwright: błędy bibliotek przy starcie przeglądarki | brak zależności systemowych → `sudo .../prepare-system.sh --stage2` |
 | Chromium w sandboxie: błąd wewnętrznego sandboxa | zagnieżdżone userns zablokowane → w projekcie Playwrighta `launchOptions: { chromiumSandbox: false }` (zewnętrzną izolację daje bwrap) |
 | `claude` prosi o login mimo logowania | logowałeś się poza sandboxem (inne HOME) → zawsze przez `run-claude` |
-| agy ma inną wersję niż w `versions.env` | wbudowany self-update → `update-tools.sh agy` odświeży zapis |
+| agy ma inną wersję niż w `versions.env` | wersja sprzed blokady self-update (dziś `tools/` w sandboxie jest RO) → `update-tools.sh agy` odświeży zapis |
 | `nieznany komponent/argument: --check` (albo inna flaga z README) | skrypt w `~/work6` jest starszy niż README z repo → `cd ~/work6-config && git pull && ./setup-work6.sh --yes` (sekcja 10.1) |
 | `update-tools.sh: nie ma takiego pliku` | uruchamiasz **wewnątrz sandboxa** — `scripts/` jest stamtąd niewidoczny → wyjdź z `agent-shell` i uruchom z konta `ai-agent` |
 | „nie widzi nowej wersji" Claude | jesteś na kanale `stable`, a patrzysz na `latest` → `update-tools.sh --check` pokaże oba; kanał zmienisz w `config/install.env` |

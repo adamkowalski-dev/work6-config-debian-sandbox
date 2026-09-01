@@ -217,6 +217,13 @@ else
     [ "$TMPDIR" = "$WORK6/tmp" ] || { echo "zły TMPDIR"; exit 1; }
     [ -w /workspace ] || { echo "/workspace niezapisywalny"; exit 1; }
     [ ! -w /usr ] || { echo "/usr zapisywalny!"; exit 1; }
+    [ ! -w "$WORK6/config" ] || { echo "config/ zapisywalny w sandboxie (ma być RO)!"; exit 1; }
+    if [ -d "$WORK6/tools" ]; then
+      [ ! -w "$WORK6/tools" ] || { echo "tools/ zapisywalny w sandboxie (ma być RO)!"; exit 1; }
+      for b in "$WORK6"/tools/claude/current/claude "$WORK6"/tools/agy/current/agy; do
+        [ ! -w "$b" ] || { echo "binarka $b zapisywalna w sandboxie!"; exit 1; }
+      done
+    fi
     echo OK
   '
   if out="$(sandbox_try net "$WORK6/projects" -- /bin/bash -c "$leak_script" 2>&1)" \

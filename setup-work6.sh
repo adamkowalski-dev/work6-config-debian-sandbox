@@ -250,17 +250,17 @@ preflight() {
 # Synchronizacja plików środowiska (launchery, skrypty, biblioteki)
 # ----------------------------------------------------------------------------
 sync_files() {
-  local d f base
+  local d
+  need_cmd rsync "apt install rsync"
+  # Rekurencyjnie i z kasowaniem: kopia w work6 ma być LUSTREM repo.
+  # Pliki usunięte z repo znikają też z work6 (inaczej run_modules
+  # source'owałby wycofany kod), podkatalogi (np. scripts/ssh) wchodzą.
   for d in bin scripts lib setup.d; do
     [ "$(readlink -f "$ROOT_DIR/$d")" = "$(readlink -f "$WORK6/$d")" ] && continue
-    for f in "$ROOT_DIR/$d"/*; do
-      [ -f "$f" ] || continue
-      base="$(basename "$f")"
-      case "$d" in
-        bin|scripts) install -m 0700 -- "$f" "$WORK6/$d/$base" ;;
-        *)           install -m 0600 -- "$f" "$WORK6/$d/$base" ;;
-      esac
-    done
+    case "$d" in
+      bin|scripts) rsync -a --delete --chmod=D0700,F0700 -- "$ROOT_DIR/$d/" "$WORK6/$d/" ;;
+      *)           rsync -a --delete --chmod=D0700,F0600 -- "$ROOT_DIR/$d/" "$WORK6/$d/" ;;
+    esac
   done
   if [ ! -f "$WORK6/config/sandbox.env" ] \
      && [ -f "$ROOT_DIR/config/sandbox.env" ]; then

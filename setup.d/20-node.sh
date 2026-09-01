@@ -2,6 +2,10 @@
 # ============================================================================
 # Moduł: Node.js LTS — lokalny runtime w work6/node (bez systemowego Node)
 # Weryfikacja: SHASUMS256.txt z oficjalnego manifestu nodejs.org.
+# UWAGA: to weryfikacja INTEGRALNOŚCI transferu, nie AUTENTYCZNOŚCI źródła
+# — suma i tarball pochodzą z tego samego hosta (nodejs.org), a podpis
+# SHASUMS256.txt.sig NIE jest weryfikowany (inaczej niż w module Claude).
+# Kompromitacja hosta/CDN unieważnia tę kontrolę. Świadomy kompromis.
 # ============================================================================
 
 MODULE_LIST+=("node")
