@@ -107,8 +107,11 @@ stage1() {
   esac
 
   # --- 2. pakiety bazowe ---
+  # acl: setfacl, wymagane przez scripts/share-with-user.sh (ACL dla
+  # userów hosta na $WORK6) — bez niego setup-work6.sh zgłosi brak
+  # narzędzia dopiero przy próbie udostępnienia.
   local base_pkgs=(bubblewrap ca-certificates curl wget git tar xz-utils
-    gnupg jq unzip zip rsync file procps)
+    gnupg jq unzip zip rsync file procps acl)
   local py_pkgs=(python3 python3-venv python3-pip)
   local missing=() p
   for p in "${base_pkgs[@]}"; do

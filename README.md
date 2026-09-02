@@ -106,7 +106,7 @@ sudo ./prepare-system.sh
 
 Skrypt (wszystko za potwierdzeniem): wykrywa Debiana i architekturę;
 instaluje minimalny zestaw APT (`bubblewrap ca-certificates curl wget
-git tar xz-utils gnupg jq unzip zip rsync file procps`, opcjonalnie
+git tar xz-utils gnupg jq unzip zip rsync file procps acl`, opcjonalnie
 `python3*`, `chromium` oraz narzędzia CLI dla agenta `ripgrep` i
 `fd-find` — w sandboxie `/usr` jest RO, więc agent sam ich nie
 doinstaluje; binarka `fd-find` na Debianie nazywa się `fdfind`);

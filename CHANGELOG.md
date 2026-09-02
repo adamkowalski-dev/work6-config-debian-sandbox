@@ -20,6 +20,9 @@ dostaje numer i datę, a commit merge - tag `vX.Y.Z`.
 
 ### Naprawione
 
+- `prepare-system.sh`: dodano `acl` do pakietów bazowych — `setfacl`
+  wymagane przez `scripts/share-with-user.sh`, wcześniej nie było na
+  liście, więc czyste maszyny mogły go nie mieć.
 - `update-tools.sh` odświeża zapis wersji w `versions.env`, gdy binarka
   zgadza się ze źródłem, a ewidencja nie (np. ślad po self-update agy
   sprzed blokady RO) - wcześniej podpowiedź z doctora nie działała bez
