@@ -76,6 +76,8 @@ VSCODE_FLAVOR="$VSCODE_FLAVOR"
 VSCODE_EXTENSIONS="$VSCODE_EXTENSIONS"
 OAUTH_MODE="$OAUTH_MODE"
 WANT_SYSTEM_CHROMIUM="$WANT_SYSTEM_CHROMIUM"
+SHARE_WITH_USER="$SHARE_WITH_USER"
+SHARE_MODE="$SHARE_MODE"
 BACKUP_KEEP="$BACKUP_KEEP"
 WIZARD_DONE="yes"
 EOF
@@ -175,13 +177,33 @@ wizard() {
   ask_component WANT_SYSTEM_CHROMIUM "systemowy Chromium do OAuth (instaluje administrator; przy 'no' użyję Chromium Playwrighta)"
 
   echo
+  info "Udostępnienie \$WORK6 (projekty, home sandboxa, cały postęp agenta)"
+  info "innemu userowi hosta przez ACL — np. Tobie/adminowi, który loguje się"
+  info "na tę maszynę. Kierunek izolacji sandboxa NIE zmienia się: ai-agent"
+  info "nadal nie widzi niczego z hosta poza \$WORK6 — to jest jednokierunkowe."
+  if confirm "Udostępnić \$WORK6 innemu userowi hosta?" \
+       "$([ -n "$SHARE_WITH_USER" ] && echo tak || echo nie)"; then
+    local ans
+    read -r -p "Login użytkownika [${SHARE_WITH_USER:-dell}]: " ans </dev/tty || true
+    SHARE_WITH_USER="${ans:-${SHARE_WITH_USER:-dell}}"
+    getent passwd "$SHARE_WITH_USER" >/dev/null \
+      || warn "user '${SHARE_WITH_USER}' jeszcze nie istnieje na tym hoście — ACL zostanie ustawione bez efektu, dopóki konto nie powstanie"
+    choose SHARE_MODE "Tryb dostępu dla ${SHARE_WITH_USER} (ro = tylko odczyt, rw = odczyt + zapis)" \
+      "${SHARE_MODE:-ro}" ro rw
+  else
+    SHARE_WITH_USER=""
+    SHARE_MODE="ro"
+  fi
+
+  echo
   info "=== Podsumowanie wyborów ==="
   local v
   for v in INSTALL_NODE NODE_POLICY NODE_MAJOR_PIN INSTALL_PYTHON \
            INSTALL_CLAUDE CLAUDE_CHANNEL CLAUDE_MAX_MODE INSTALL_AGY \
            AGY_MAX_MODE INSTALL_PLAYWRIGHT PLAYWRIGHT_ENGINES INSTALL_FLUTTER \
            FLUTTER_CHANNEL FLUTTER_TARGETS INSTALL_VSCODE VSCODE_FLAVOR \
-           VSCODE_EXTENSIONS OAUTH_MODE WANT_SYSTEM_CHROMIUM; do
+           VSCODE_EXTENSIONS OAUTH_MODE WANT_SYSTEM_CHROMIUM \
+           SHARE_WITH_USER SHARE_MODE; do
     printf '  %-22s %s\n' "$v" "${!v}"
   done
   echo
@@ -349,6 +371,11 @@ summary() {
     *)
       echo "  OAuth: URL-e z CLI otwieraj w DEDYKOWANYM profilu przeglądarki na innym urządzeniu" ;;
   esac
+  if [ -n "${SHARE_WITH_USER:-}" ]; then
+    echo
+    info "\$WORK6 udostępniony userowi hosta '${SHARE_WITH_USER}' (${SHARE_MODE:-ro})."
+    echo "  sprawdź:  sudo -u ${SHARE_WITH_USER} ls -la $WORK6/projects"
+  fi
   echo
   info "pełna instrukcja: README.md; diagnoza problemów: scripts/doctor.sh"
 }
@@ -374,6 +401,21 @@ main() {
   preflight
   sync_files
   run_modules
+
+  # ensure_tree() (na początku tej funkcji) robi zwykły chmod na $WORK6 —
+  # to zeruje maskę ACL nadaną przez share-with-user.sh przy poprzednim
+  # uruchomieniu (POSIX ACL: chmod nie usuwa wpisów, ale zeruje ich
+  # efektywne uprawnienia). Dlatego odświeżamy ACL na końcu KAŻDEGO runu,
+  # nie tylko przy pierwszej konfiguracji.
+  if [ -n "${SHARE_WITH_USER:-}" ]; then
+    if getent passwd "$SHARE_WITH_USER" >/dev/null 2>&1; then
+      "$WORK6/scripts/share-with-user.sh" --mode "${SHARE_MODE:-ro}" "$SHARE_WITH_USER" \
+        || warn "share-with-user.sh nie powiodło się — uruchom ręcznie: $WORK6/scripts/share-with-user.sh --mode ${SHARE_MODE:-ro} $SHARE_WITH_USER"
+    else
+      warn "SHARE_WITH_USER='${SHARE_WITH_USER}' nie istnieje na tym hoście — pomijam ACL (--reconfigure, żeby poprawić)"
+    fi
+  fi
+
   summary
 }
 main

@@ -8,6 +8,16 @@ dostaje numer i datę, a commit merge - tag `vX.Y.Z`.
 
 ## [Unreleased]
 
+### Dodane
+
+- `scripts/share-with-user.sh` + flaga `SHARE_WITH_USER`/`SHARE_MODE`
+  w kreatorze `setup-work6.sh` — ACL (POSIX, `setfacl`) otwierające
+  `$WORK6` do odczytu/zapisu dla wskazanego konta hosta (np. operatora
+  logującego się na maszynę), bez zmiany izolacji sandboxa w drugą
+  stronę. Odświeżane automatycznie po każdym `setup-work6.sh`, bo
+  `ensure_tree()` resetuje maskę ACL zwykłym `chmod`. Zweryfikowane
+  w kontenerze Debian 13.
+
 ### Naprawione
 
 - `update-tools.sh` odświeża zapis wersji w `versions.env`, gdy binarka

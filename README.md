@@ -78,6 +78,26 @@ Przełączanie: `sudo -iu ai-agent` (pełny login shell, bez zmiennych
 Twojej sesji). **Nie używaj** `sudo -u ai-agent <gui>` bez `-i` —
 launchery GUI i tak odmówią pracy na cudzej sesji.
 
+### 3.1. Podgląd/zapis `$WORK6` z Twojego konta
+
+Domyślnie `$WORK6` jest `0700` — nawet Ty (jako inny user Linuksa) nie
+przejrzysz plików agenta. Żeby to otworzyć w JEDNĄ stronę (Ty widzisz
+pracę agenta; `ai-agent` nadal nie widzi niczego z Twojego konta —
+izolacja sandboxa się nie zmienia), ustaw w kreatorze `setup-work6.sh`
+(albo ręcznie w `config/install.env`) `SHARE_WITH_USER="<twój login>"`.
+Skrypt `scripts/share-with-user.sh` nadaje ACL na całe drzewo `$WORK6`
+(`ro` = tylko odczyt, `rw` = odczyt + zapis) — łącznie z plikami, które
+agent dopiero utworzy (default ACL, działa mimo `umask 077` agenta).
+Uruchamia się automatycznie na końcu każdego `setup-work6.sh`, bo
+`ensure_tree()` przy każdym starcie robi zwykły `chmod 0700`, który
+zeruje maskę ACL z poprzedniego uruchomienia.
+
+Ręczne (od)świeżenie, jako `ai-agent`:
+
+```bash
+~/work6-config/scripts/share-with-user.sh --mode rw <twój-login>
+```
+
 ## 4. Jednorazowe przygotowanie systemu (administrator)
 
 ```bash
