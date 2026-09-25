@@ -63,20 +63,45 @@ RIGHTS="rX"
 
 agent_home="$(getent passwd "$AGENT_USER" | cut -d: -f6)"
 
+# setfacl -R sam w sobie jest odporny — przechodzi całe poddrzewo i zgłasza
+# każde niepowodzenie z osobna (np. luźne obiekty gita zhardlinkowane do
+# inode'a innego właściciela: EPERM na chmod/ACL, bo o zmianie ACL decyduje
+# właściciel PLIKU, nie ścieżki). set -e ubiłby całą pętlę po WORK6_TREE na
+# pierwszym takim pliku — zbieramy błędy i lecimy dalej, żeby jeden zepsuty
+# obiekt nie blokował ACL na resztę drzewa (scripts/, backups/, state/...).
+FAILED=()
+
+_acl_try() { # _acl_try OPIS -- setfacl ...
+  local desc="$1"; shift; shift # $1=opis, $2="--" (odrzucone)
+  if ! "$@" 2>&1 | sed 's/^/    /'; then
+    FAILED+=("$desc")
+  fi
+  return 0
+}
+
 # Traverse-only na home agenta i na korzeniu $WORK6 — bez tego TARGET nie
 # wejdzie w głąb, nawet mając pełne ACL na docelowych podkatalogach.
-setfacl -m "u:${TARGET}:x" -- "$agent_home"
-setfacl -m "u:${TARGET}:${RIGHTS}" -- "$WORK6"
+_acl_try "$agent_home (traverse)" -- setfacl -m "u:${TARGET}:x" -- "$agent_home"
+_acl_try "$WORK6 (traverse)" -- setfacl -m "u:${TARGET}:${RIGHTS}" -- "$WORK6"
 
 for d in "${WORK6_TREE[@]}"; do
   p="$WORK6/$d"
   [ -e "$p" ] || continue
   [ -L "$p" ] && { warn "$p jest dowiązaniem symbolicznym — pomijam"; continue; }
   [ -d "$p" ] || continue
-  setfacl -R -m "u:${TARGET}:${RIGHTS}" -- "$p"
-  setfacl -R -d -m "u:${TARGET}:${RIGHTS}" -- "$p"
+  _acl_try "$p (access)" -- setfacl -R -m "u:${TARGET}:${RIGHTS}" -- "$p"
+  _acl_try "$p (default)" -- setfacl -R -d -m "u:${TARGET}:${RIGHTS}" -- "$p"
 done
 
-ok "ACL dla '${TARGET}' (${MODE}) odświeżone na całym drzewie \$WORK6 ($WORK6)"
+if [ "${#FAILED[@]}" -eq 0 ]; then
+  ok "ACL dla '${TARGET}' (${MODE}) odświeżone na całym drzewie \$WORK6 ($WORK6)"
+else
+  warn "ACL dla '${TARGET}' (${MODE}) odświeżone częściowo — ${#FAILED[@]} ścieżek zgłosiło błędy (patrz wyżej):"
+  printf '    %s\n' "${FAILED[@]}" >&2
+  warn "typowa przyczyna: pliki nie należą do '${AGENT_USER}' (np. luźne obiekty .git"
+  warn "zhardlinkowane przy lokalnym 'git clone' z checkoutu innego użytkownika) —"
+  warn "zmiana ACL wymaga bycia właścicielem PLIKU, nie tylko dostępu do ścieżki."
+fi
 info "sprawdź:  sudo -u ${TARGET} ls -la ${WORK6}/projects"
 info "kierunek izolacji nietknięty: ai-agent nadal nie widzi niczego z hosta poza \$WORK6."
+[ "${#FAILED[@]}" -eq 0 ] || exit 1

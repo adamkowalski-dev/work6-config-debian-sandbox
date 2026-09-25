@@ -20,6 +20,11 @@ dostaje numer i datę, a commit merge - tag `vX.Y.Z`.
 
 ### Naprawione
 
+- `scripts/share-with-user.sh`: jeden plik, na którym `setfacl` zwraca
+  błąd (np. luźny obiekt gita zhardlinkowany do innego właściciela przy
+  lokalnym `git clone`), nie przerywa już całej pętli po drzewie
+  `$WORK6` — reszta katalogów dostaje ACL, a skrypt na końcu podsumowuje
+  ścieżki, które się nie udały, zamiast umierać w połowie.
 - `update-tools.sh` odświeża zapis wersji w `versions.env`, gdy binarka
   zgadza się ze źródłem, a ewidencja nie (np. ślad po self-update agy
   sprzed blokady RO) - wcześniej podpowiedź z doctora nie działała bez
